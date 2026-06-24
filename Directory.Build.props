@@ -1,0 +1,10 @@
+<Project>
+  <ItemGroup>
+    <!--
+      SQLitePCLRaw.lib.e_sqlite3 2.1.11 tiene GHSA-2m69-gcr7-jv3q (alta severidad).
+      No existe version 2.1.12+ aun. Suprimida hasta que el paquete upstream publique un fix.
+      Revisar: https://github.com/advisories/GHSA-2m69-gcr7-jv3q
+    -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2m69-gcr7-jv3q" />
+  </ItemGroup>
+</Project>
