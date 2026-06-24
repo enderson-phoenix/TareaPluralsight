@@ -8,3 +8,6 @@ obj/
 *.db-wal
 appsettings.Development.json
 test-runs.log
+
+# Documentos internos de evaluación
+ASSIGNMENT.md
