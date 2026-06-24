@@ -997,6 +997,29 @@ git commit -m "feat: add CalibrationDate to ServiceOrder"
         └── OK → commit procede ✓
 ```
 
+### Flujo de Pull Request
+
+```
+/crear-pr [título opcional]
+    │
+    PASO 1: detecta archivos pendientes (git status)
+    │   └── sin cambios → avisa y para
+    │
+    PASO 2: valida build + tests
+    │   ├── FAIL → ❌ BLOQUEADO — no se crea nada
+    │   └── PASS → continúa
+    │
+    PASO 3: determina rama
+    │   ├── ya en feature/* → usa la rama actual
+    │   └── en main → crea feature/<slug-del-titulo>
+    │
+    PASO 4: git add -A + git commit (con título + Co-Authored-By)
+    PASO 5: git push -u origin <rama>
+    PASO 6: gh pr create --title ... --base main --body ...
+    │
+    └── ✅ PR CREADO — devuelve URL de GitHub
+```
+
 ### Flujo de análisis profundo
 
 ```

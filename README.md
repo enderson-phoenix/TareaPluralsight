@@ -265,6 +265,7 @@ dotnet ef migrations add NombreMigracion \
 | `/validate-agent` | Análisis profundo en subagente aislado |
 | `/validate-smart` | Validación interactiva por severidad (🔴🟡🔵) |
 | `/new-entity` | Genera entidades de dominio DDD listas para usar |
+| `/crear-pr [título]` | Crea rama feature, commit, push y PR en GitHub sin tocar main |
 | Hooks automáticos | Build en cada edición .cs, gates antes de commits |
 
 ### Sistema de agentes expertos
