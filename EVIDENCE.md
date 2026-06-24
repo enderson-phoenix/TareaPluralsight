@@ -29,7 +29,7 @@ Claude entró en Plan Mode y propuso:
 **Ajuste al plan antes de aprobar:**
 - Se cambió el tipo de retorno de `AssignTechnicianCommand` de `Unit` a `bool` para dar feedback explícito al controller sobre si la orden existía.
 
-**Resultado:** Plan aprobado e implementado. 7 tests pasando.
+**Resultado:** Plan aprobado e implementado. 7 tests pasando (base UC-01/02/03; 10 en total tras UC-04).
 
 ---
 
@@ -199,7 +199,7 @@ Se debe agregar validación de FluentValidation para CustomerName, Equipment y P
 
 ## T-07 — Custom Skill
 
-**Archivo creado:** `.claude/commands/new-entity.md`
+**Archivo creado:** `.claude/skills/new-entity.md` (también disponible en `.claude/commands/new-entity.md`)
 
 **Descripción:** Genera una entidad de dominio DDD completa con propiedades tipadas, constructor privado, método `Create(...)` estático, y XML documentation comments.
 
@@ -292,3 +292,142 @@ dotnet ef migrations add AddEquipmentTable \
 - `Stop` Op3: validación en background al terminar turno de Claude
 
 Ver `.claude/settings.json` y `.claude/GUIDE.md` para el código completo.
+
+---
+
+## UC-04 — Cerrar Orden de Servicio (CloseOrder)
+
+**Cuándo:** Tras completar UC-01/02/03 y los 7 tests base, se extendió el sistema con el flujo de cierre de órdenes incluyendo notas del técnico.
+
+### Plan Mode — diseño de la feature
+
+**Prompt usado en Claude Code:**
+```
+Quiero agregar el campo Notes a ServiceOrder para que el técnico pueda
+dejar observaciones al cerrar una orden. Necesito el plan completo:
+dominio, application, infraestructura, endpoint y tests.
+```
+
+**Plan generado por Claude:**
+
+| Capa | Cambios |
+|------|---------|
+| Domain | Agregar `Notes { get; private set; }` a `ServiceOrder`; actualizar `Close()` para aceptar `string? notes` |
+| Application | Crear `CloseOrderCommand(Guid OrderId, string? Notes)` + `CloseOrderHandler`; agregar `Notes` al `OrderDto` |
+| Infrastructure | Agregar `entity.Property(e => e.Notes).HasMaxLength(2000)` en `AppDbContext` |
+| Api | Nuevo endpoint `PUT /api/orders/{id}/close` con `CloseOrderRequest(string? Notes)` |
+| Tests | 3 casos: cierre con notes, cierre sin notes, orden inexistente |
+
+### TDD — ciclo Rojo → Verde
+
+**Test escrito ANTES de implementar el handler:**
+
+```csharp
+[Fact]
+public async Task Handle_ExistingOrderWithNotes_ReturnsTrueAndPersistsNotes()
+{
+    // Arrange
+    var order = ServiceOrder.Create("Ana García", "Termómetro PT-100", "Lectura errática");
+    var command = new CloseOrderCommand(order.Id, "Sensor calibrado. Lectura corregida a ±0.1°C.");
+
+    _repositoryMock.Setup(r => r.GetByIdAsync(order.Id)).ReturnsAsync(order);
+    _repositoryMock.Setup(r => r.UpdateAsync(It.IsAny<ServiceOrder>())).Returns(Task.CompletedTask);
+
+    // Act
+    var result = await _handler.Handle(command, CancellationToken.None);
+
+    // Assert
+    result.Should().BeTrue();
+    order.Status.Should().Be(OrderStatus.Closed);
+    order.Notes.Should().Be("Sensor calibrado. Lectura corregida a ±0.1°C.");
+    _repositoryMock.Verify(r => r.UpdateAsync(order), Times.Once);
+}
+```
+
+**Resultado en ROJO:** `error CS0246: 'CloseOrderHandler' could not be found. Build FAILED.`
+
+**Implementación del handler (mínima para pasar el test):**
+
+```csharp
+public class CloseOrderHandler : IRequestHandler<CloseOrderCommand, bool>
+{
+    private readonly IServiceOrderRepository _repository;
+    public CloseOrderHandler(IServiceOrderRepository repository) => _repository = repository;
+
+    public async Task<bool> Handle(CloseOrderCommand request, CancellationToken cancellationToken)
+    {
+        var order = await _repository.GetByIdAsync(request.OrderId);
+        if (order is null) return false;
+        order.Close(request.Notes);
+        await _repository.UpdateAsync(order);
+        return true;
+    }
+}
+```
+
+**Resultado en VERDE:**
+```
+Passed! - Failed: 0, Passed: 10, Skipped: 0, Total: 10, Duration: 1 043 ms
+```
+
+### Archivos modificados/creados
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/CalSystem.Domain/Entities/ServiceOrder.cs` | `Notes { get; private set; }` + `Close(string? notes)` |
+| `src/CalSystem.Application/Orders/Commands/CloseOrder/CloseOrderCommand.cs` | Nuevo — record `IRequest<bool>` |
+| `src/CalSystem.Application/Orders/Commands/CloseOrder/CloseOrderHandler.cs` | Nuevo — handler |
+| `src/CalSystem.Application/Orders/Queries/GetOrdersByStatus/OrderDto.cs` | Campo `Notes` agregado |
+| `src/CalSystem.Infrastructure/Persistence/AppDbContext.cs` | `HasMaxLength(2000)` para Notes |
+| `src/CalSystem.Api/Controllers/ServiceOrdersController.cs` | Endpoint `PUT {id}/close` |
+| `tests/CalSystem.Tests/Orders/Commands/CloseOrderHandlerTests.cs` | Nuevo — 3 tests |
+
+---
+
+## Bonus — Sistema de Agentes Expertos
+
+**Qué es:** Un sistema de 6 agentes especializados por capa + un orquestador con routing automático, creado para asistir el desarrollo de CalSystem con expertise específico de cada tecnología.
+
+### Agentes creados en `.claude/agents/`
+
+| Agente | Especialidad |
+|--------|-------------|
+| `domain-expert` | Entidades DDD, enums, interfaces de repositorio, invariantes |
+| `application-expert` | Commands, Queries, Handlers, DTOs, MediatR 12 |
+| `infrastructure-expert` | EF Core 9, SQLite, repositorios, migraciones |
+| `api-expert` | ASP.NET Core controllers, routing, Swagger, status codes |
+| `test-expert` | xUnit, Moq, FluentAssertions, ciclo TDD |
+| `architecture-expert` | Clean Architecture, límites entre capas, SOLID |
+
+### Orquestador `/consult`
+
+**Archivo:** `.claude/commands/consult.md`
+
+**Dos modos de uso:**
+- **Automático:** detecta capas afectadas por keywords o `git diff` y enruta a los expertos correspondientes
+- **Manual:** el usuario prefija con `@domain`, `@app`, `@infra`, `@api`, `@test` o `@arch`
+
+**Demo real — usado para diseñar UC-04:**
+
+```
+/consult agregar campo Notes a ServiceOrder para que el técnico pueda
+         dejar observaciones al cerrar una orden
+```
+
+El orquestador detectó keywords de 5 capas (`entity`, `campo`, `cerrar`, `orden`) e invocó
+`domain-expert`, `application-expert`, `infrastructure-expert`, `api-expert` y `test-expert`.
+Cada uno entregó su recomendación en su área. El plan consolidado fue aprobado e implementado
+exitosamente: 3 nuevos archivos, 4 modificados, 10/10 tests verdes.
+
+### Atajos manuales (6 comandos)
+
+```
+/domain-expert   → invoca domain-expert directamente
+/app-expert      → invoca application-expert
+/infra-expert    → invoca infrastructure-expert
+/api-expert      → invoca api-expert
+/test-expert     → invoca test-expert
+/arch-expert     → invoca architecture-expert
+```
+
+Ver `.claude/GUIDE.md` para documentación completa del sistema de expertos.
