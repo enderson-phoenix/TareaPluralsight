@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CalSystem.Api.Controllers;
 
 [ApiController]
-[Route("api/orders")]
+[Route("api/service-orders")]
 public class ServiceOrdersController : ControllerBase
 {
     private readonly IMediator _mediator;

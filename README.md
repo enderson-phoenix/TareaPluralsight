@@ -67,10 +67,10 @@ dotnet run --project src/CalSystem.Web --urls http://localhost:5200
 
 ## Endpoints — Órdenes de Servicio
 
-### POST /api/orders — Crear orden
+### POST /api/service-orders — Crear orden
 
 ```http
-POST /api/orders
+POST /api/service-orders
 Content-Type: application/json
 
 {
@@ -87,10 +87,10 @@ Content-Type: application/json
 
 ---
 
-### PUT /api/orders/{id}/assign — Asignar técnico
+### PUT /api/service-orders/{id}/assign — Asignar técnico
 
 ```http
-PUT /api/orders/3fa85f64.../assign
+PUT /api/service-orders/3fa85f64.../assign
 Content-Type: application/json
 
 {
@@ -102,10 +102,10 @@ Content-Type: application/json
 
 ---
 
-### PUT /api/orders/{id}/close — Cerrar orden
+### PUT /api/service-orders/{id}/close — Cerrar orden
 
 ```http
-PUT /api/orders/3fa85f64.../close
+PUT /api/service-orders/3fa85f64.../close
 Content-Type: application/json
 
 {
@@ -117,12 +117,12 @@ Content-Type: application/json
 
 ---
 
-### GET /api/orders?status={status} — Consultar por estado
+### GET /api/service-orders?status={status} — Consultar por estado
 
 ```http
-GET /api/orders?status=Pending
-GET /api/orders?status=InProgress
-GET /api/orders?status=Closed
+GET /api/service-orders?status=Pending
+GET /api/service-orders?status=InProgress
+GET /api/service-orders?status=Closed
 ```
 
 **Valores válidos:** `Pending`, `InProgress`, `Closed`
