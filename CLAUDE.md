@@ -91,5 +91,7 @@ dotnet ef database update \
 - `/new-entity` — genera una entidad de dominio DDD lista para usar
 - `/consult` — orquestador: auto-detecta capas afectadas y enruta a expertos
 - `/frontend-expert` — experto Blazor WASM (componentes, servicios, CSS)
+- `/crear-pr [título]` — crea rama feature, commit, push y PR en GitHub (no toca main)
 - `change-validator` — agente quality gate con 7 checks automáticos
+- `pr-creator` — agente que automatiza el flujo completo de Pull Request
 - Hooks en `.claude/settings.json` — validación automática en edición y commits

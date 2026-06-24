@@ -438,6 +438,59 @@ Ver `.claude/GUIDE.md` para documentación completa del sistema de expertos.
 
 ---
 
+## Bonus 3 — Automatización de Pull Requests (`/crear-pr` + `pr-creator`)
+
+**Qué es:** Comando y agente especializado que automatizan el flujo completo de Pull Request: valida build y tests, crea una rama `feature/`, hace commit de los cambios pendientes, push al remoto y abre el PR en GitHub via `gh` CLI. Nunca commitea directamente a `main`.
+
+### Archivos creados
+
+| Archivo | Descripción |
+|---------|-------------|
+| `.claude/commands/crear-pr.md` | Comando `/crear-pr [título]` — delegador al agente `pr-creator` |
+| `.claude/agents/pr-creator.md` | Agente con flujo de 7 pasos: detectar → validar → rama → commit → push → PR → reporte |
+
+### Flujo del agente `pr-creator`
+
+```
+/crear-pr [título opcional]
+    │
+    PASO 1: git status — detecta cambios pendientes
+    PASO 2: dotnet build + dotnet test — ❌ BLOQUEADO si falla alguno
+    PASO 3: genera feature/<slug-del-titulo> (o usa rama actual si ya es feature)
+    PASO 4: git add -A + git commit con Co-Authored-By
+    PASO 5: git push -u origin <rama>
+    PASO 6: gh pr create --title --base main --body (Resumen + Plan de pruebas)
+    PASO 7: tabla de estado + URL del PR creado
+```
+
+### Ejemplos de uso
+
+```
+/crear-pr
+/crear-pr Agregar campo Notes a ServiceOrder
+/crear-pr Configurar MCP GitHub en el proyecto
+```
+
+### Configuración MCP relacionada
+
+El archivo `.mcp.json` en la raíz define el servidor GitHub MCP disponible para el proyecto:
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}" }
+    }
+  }
+}
+```
+
+Este archivo se commitea al repo para que todo el equipo comparta la misma configuración MCP al abrir el proyecto en Claude Code.
+
+---
+
 ## Bonus 2 — Frontend Blazor WebAssembly + Gestión de Técnicos
 
 **Qué es:** Interfaz visual completa que consume la API REST, implementada como Blazor WASM en `src/CalSystem.Web/`. Incluye gestión de técnicos end-to-end.
