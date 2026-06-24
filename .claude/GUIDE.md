@@ -29,6 +29,7 @@
 7. [Flujos de trabajo de validación](#flujos)
 8. [Cómo crear los tuyos](#crear)
 9. [Referencia rápida](#referencia)
+10. [Sistema de Gestión de Contexto](#context-manager)
 
 ---
 
@@ -1328,3 +1329,161 @@ expert  expert  expert   expert     expert    expert    expert
 | **Emite veredicto** | Diseño DDD | Diseño CQRS | Config EF Core | REST semántico | Cobertura | CUMPLE/VIOLA | Componente Blazor |
 
 *Guía generada con Claude Code · Proyecto CalSystem · Phoenix Calibration DR*
+
+---
+
+## 10. Sistema de Gestión de Contexto
+
+El sistema de contexto permite a Claude recordar el historial del proyecto entre sesiones
+sin releer todos los archivos desde cero. Ahorra tokens y acelera la resolución de problemas.
+
+### Estructura de archivos
+
+```
+.claude/context/
+  INDEX.md          ← índice maestro ultra-compacto (auto-cargado en SessionStart)
+  active/           ← contextos activos (< 6 meses)
+    ctx-NNN-slug.md
+  archive/          ← backlog de contextos viejos (> 6 meses)
+    ctx-NNN-slug.md
+```
+
+### Cómo funciona
+
+**Al iniciar sesión** — el hook `SessionStart` carga `INDEX.md` automáticamente.
+Claude ve de inmediato qué existe en el proyecto sin ningún prompt manual.
+
+**Cuando necesitas contexto específico** — usa `/ctx-search` para cargar solo el archivo relevante.
+No se lee el proyecto completo: INDEX.md (< 50 tokens) → archivo específico (~100 tokens).
+
+**Al terminar trabajo importante** — usa `/ctx-save` para que el agente `context-manager`
+cree un mini-contexto con resumen, archivos clave y decisiones. El INDEX.md se actualiza automáticamente.
+
+**Mantenimiento mensual** — `/ctx-cleanup` archiva contextos > 6 meses (respetando un grace
+period para los que se consultan frecuentemente: `accessed >= 3`).
+
+### Comandos de contexto
+
+| Comando | Acción |
+|---------|--------|
+| `/ctx-save` | Auto-detecta trabajo desde git, crea mini-contexto |
+| `/ctx-save @tooling Nuevo agente X` | Fuerza el tipo `tooling` y el título |
+| `/ctx-search @frontend` | Filtra por tag, carga solo esos archivos |
+| `/ctx-search EF Core` | Búsqueda por keyword en títulos y tags |
+| `/ctx-cleanup` | Archiva los viejos, mantiene los frecuentes |
+
+### Formato del INDEX.md
+
+```markdown
+# CalSystem — Índice de Contexto
+> Actualizado: YYYY-MM-DD | Activos: N | Archivados: N
+
+## Activos
+| ID | Título | Tags | Tipo | Fecha |
+|----|--------|------|------|-------|
+| [ctx-001](active/ctx-001-slug.md) | Título corto | tag1,tag2 | setup | 2026-06 |
+```
+
+**Regla de diseño:** el INDEX.md completo debe ser legible en menos de 50 tokens.
+Una fila por contexto — no se añade detalle aquí, solo el título y los tags.
+
+### Formato de un archivo de contexto
+
+```markdown
+---
+id: ctx-NNN
+title: Título descriptivo
+date: YYYY-MM-DD
+tags: [tag1, tag2]
+type: setup | feature | bugfix | decision | tooling
+accessed: 0
+---
+
+## Resumen
+[Párrafo suficiente para entender el contexto sin abrir otro archivo]
+
+## Archivos clave
+- `ruta/archivo.cs` — descripción breve
+
+## Decisiones tomadas
+- Por qué se eligió X sobre Y
+
+## Problemas resueltos
+- Problema → Solución
+
+## Relacionado
+- [[ctx-NNN]] — contexto relacionado
+```
+
+### Agente `context-manager`
+
+El agente especializado que crea y actualiza los archivos de contexto.
+Usa `Bash, Read, Glob, Grep, Write, Edit`.
+
+**Flujo interno del agente:**
+1. Lee `git log` y `git diff` para entender qué cambió (sin leer todo el proyecto)
+2. Lee máx 5 archivos clave identificados por el diff
+3. Determina el siguiente ID desde INDEX.md
+4. Escribe `ctx-NNN-slug.md` en `active/`
+5. Actualiza la tabla del INDEX.md
+
+**Tags disponibles:** `domain`, `app`, `api`, `infra`, `frontend`, `test`, `tooling`, `git`, `arch`
+
+### Hook SessionStart
+
+```json
+"SessionStart": [
+  {
+    "hooks": [
+      {
+        "type": "command",
+        "shell": "powershell",
+        "command": "if (Test-Path '.claude/context/INDEX.md') { Get-Content '.claude/context/INDEX.md' | Select-Object -First 25 }"
+      }
+    ]
+  }
+]
+```
+
+Carga las primeras 25 líneas del INDEX.md al iniciar la sesión.
+Si el directorio no existe, el hook es silencioso.
+
+### Flujo de contexto completo
+
+```
+Inicio de sesión
+    │
+    └── [AUTO SessionStart] lee INDEX.md → Claude ve el índice
+
+Trabajo de desarrollo
+    │
+    ├── /ctx-search @tooling  → filtra INDEX.md → carga ctx específico
+    └── ... editar, crear, corregir código ...
+
+Al terminar trabajo
+    │
+    └── /ctx-save "Título de lo que hice"
+            │
+            └── context-manager:
+                  git log + git diff → entiende cambios
+                  lee 5 archivos clave
+                  crea ctx-NNN-slug.md
+                  actualiza INDEX.md
+
+Mantenimiento (mensual)
+    │
+    └── /ctx-cleanup
+            │
+            ├── ctx viejo + poco usado → archive/
+            ├── ctx viejo + muy usado  → mantener (grace period)
+            └── ctx reciente           → mantener activo
+```
+
+### Ahorro de tokens
+
+| Escenario | Sin sistema | Con sistema |
+|-----------|-------------|-------------|
+| Entender qué existe | Leer 20+ archivos | INDEX.md (1 archivo) |
+| Recordar la capa Domain | Releer entidades e interfaces | `/ctx-search @domain` |
+| Saber qué hooks hay | Leer settings.json + GUIDE.md | `/ctx-search @tooling` |
+| Inicio de sesión | Sin contexto | SessionStart auto-carga índice |

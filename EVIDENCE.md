@@ -438,6 +438,54 @@ Ver `.claude/GUIDE.md` para documentación completa del sistema de expertos.
 
 ---
 
+## Bonus 4 — Sistema de Gestión de Contexto (`/ctx-save`, `/ctx-search`, `context-manager`)
+
+**Qué es:** Sistema de historial de contexto por proyecto que permite a Claude recordar el trabajo previo sin releer todos los archivos desde cero en cada sesión. Implementa un índice compacto auto-cargado en `SessionStart`, archivos de mini-contexto estructurados y archivado automático por antigüedad.
+
+### Componentes implementados
+
+| Archivo | Descripción |
+|---------|-------------|
+| `.claude/context/INDEX.md` | Índice maestro ultra-compacto (< 50 tokens), auto-cargado en cada sesión |
+| `.claude/context/active/ctx-00N-*.md` | 6 archivos de contexto semilla cubriendo todo el historial del proyecto |
+| `.claude/agents/context-manager.md` | Agente que crea mini-contextos desde git diff y actualiza el índice |
+| `.claude/commands/ctx-save.md` | `/ctx-save [título]` — guarda contexto del trabajo actual |
+| `.claude/commands/ctx-search.md` | `/ctx-search [@tag | keyword]` — busca sin cargar archivos irrelevantes |
+| `.claude/commands/ctx-cleanup.md` | Archiva contextos > 6 meses (grace period para los muy consultados) |
+
+### Flujo del sistema
+
+```
+SessionStart hook → INDEX.md auto-cargado → Claude tiene visión del proyecto
+
+/ctx-search @tooling → lee INDEX.md → carga solo archivos con tag "tooling"
+
+/ctx-save "Feature X" → context-manager:
+    git log + git diff → identifica cambios
+    lee máx 5 archivos clave
+    crea ctx-NNN-slug.md en active/
+    actualiza INDEX.md (nueva fila + contador)
+
+/ctx-cleanup → compara fechas → archiva viejos → grace period si accessed ≥ 3
+```
+
+### Regla de grace period
+
+Contextos con más de 6 meses NO se archivan si `accessed >= 3`. El campo `accessed`
+se incrementa cada vez que `/ctx-search` carga ese archivo, indicando que el equipo
+lo consulta activamente. Conservar contextos frecuentes aunque sean viejos evita
+perder conocimiento valioso.
+
+### Ahorro de tokens estimado
+
+| Escenario | Tokens sin sistema | Tokens con sistema |
+|-----------|-------------------|-------------------|
+| Entender qué existe en el proyecto | ~2000 (leer 20+ archivos) | ~50 (INDEX.md) |
+| Recordar la capa Domain | ~800 (releer entidades) | ~150 (ctx-002) |
+| Inicio de sesión con contexto | 0 (empieza ciego) | ~50 (SessionStart auto-carga) |
+
+---
+
 ## Bonus 3 — Automatización de Pull Requests (`/crear-pr` + `pr-creator`)
 
 **Qué es:** Comando y agente especializado que automatizan el flujo completo de Pull Request: valida build y tests, crea una rama `feature/`, hace commit de los cambios pendientes, push al remoto y abre el PR en GitHub via `gh` CLI. Nunca commitea directamente a `main`.
