@@ -13,15 +13,22 @@
    - [/validate](#validate)
    - [/validate-agent](#validate-agent)
    - [/validate-smart](#validate-smart)
-4. [Agents (Subagentes)](#agents)
+4. [Agents de validación](#agents)
    - [change-validator](#change-validator)
-5. [Hooks en settings.json](#hooks)
+5. [Sistema de Agentes Expertos](#expertos)
+   - [¿Qué es y para qué sirve?](#que-es)
+   - [Los 6 agentes expertos](#los-6-agentes)
+   - [El orquestador /consult](#consult)
+   - [Atajos manuales por experto](#atajos)
+   - [Flujo de trabajo con expertos](#flujo-expertos)
+   - [¿Qué hace la IA en cada proceso?](#que-hace-la-ia)
+6. [Hooks en settings.json](#hooks)
    - [Tipos de hook](#tipos-de-hook)
    - [Eventos disponibles](#eventos)
    - [Nuestros hooks](#nuestros-hooks)
-6. [Flujos de trabajo](#flujos)
-7. [Cómo crear los tuyos](#crear)
-8. [Referencia rápida](#referencia)
+7. [Flujos de trabajo de validación](#flujos)
+8. [Cómo crear los tuyos](#crear)
+9. [Referencia rápida](#referencia)
 
 ---
 
@@ -68,11 +75,25 @@ Tú editas ServiceOrder.cs
 ```
 .claude/
 ├── agents/
-│   └── change-validator.md     ← Agente: quality gate completo (7 checks)
+│   ├── change-validator.md     ← Agente: quality gate completo (7 checks)
+│   ├── domain-expert.md        ← Experto: DDD, entidades, enums, IRepository
+│   ├── application-expert.md   ← Experto: CQRS, MediatR, Commands, Handlers
+│   ├── infrastructure-expert.md← Experto: EF Core, SQLite, repositorios, migraciones
+│   ├── api-expert.md           ← Experto: controllers ASP.NET, Swagger, Program.cs
+│   ├── test-expert.md          ← Experto: xUnit, Moq, FluentAssertions, TDD
+│   └── architecture-expert.md  ← Experto: Clean Architecture, límites, SOLID
 ├── commands/
 │   ├── validate.md             ← /validate  (inline + FIX-PLAN.md)
 │   ├── validate-agent.md       ← /validate-agent (delega al agente)
-│   └── validate-smart.md       ← /validate-smart (por severidad, interactivo)
+│   ├── validate-smart.md       ← /validate-smart (por severidad, interactivo)
+│   ├── new-entity.md           ← /new-entity (generador DDD)
+│   ├── consult.md              ← /consult (orquestador de expertos)
+│   ├── domain-expert.md        ← /domain-expert (atajo directo)
+│   ├── app-expert.md           ← /app-expert (atajo directo)
+│   ├── infra-expert.md         ← /infra-expert (atajo directo)
+│   ├── api-expert.md           ← /api-expert (atajo directo)
+│   ├── test-expert.md          ← /test-expert (atajo directo)
+│   └── arch-expert.md          ← /arch-expert (atajo directo)
 └── settings.json               ← 4 hooks automáticos
 ```
 
@@ -302,7 +323,449 @@ CHECK 7 — Contrato de API     lee controller vs command/query   WARN si desali
 
 ---
 
-## 5. Hooks en settings.json
+## 5. Sistema de Agentes Expertos
+
+### ¿Qué es y para qué sirve?
+
+El **Sistema de Agentes Expertos** es un índice inteligente de especialistas por capa del proyecto. Cada agente conoce profundamente su parte del stack (dominio, aplicación, infraestructura, API, tests, arquitectura) y puede asesorarte en diseño, revisión de código y detección de errores específicos de su capa.
+
+**Problema que resuelve:** Cuando trabajas en un proyecto con múltiples capas y tecnologías, es difícil recordar las convenciones exactas de cada capa. El sistema enruta automáticamente a los expertos correctos según lo que estás haciendo, sin que tengas que saber cuál llamar.
+
+**Dos modos de uso:**
+- **Automático:** `/consult` detecta qué cambió en git o analiza tu descripción y enruta solo.
+- **Manual:** invocas el experto que necesitas directamente con un atajo (`/domain-expert`, `/test-expert`, etc.) o forzando en el orquestador con `@experto`.
+
+```
+Sin el sistema:                      Con el sistema:
+  "¿Cómo agrego este campo?"     →   /consult agregar campo a ServiceOrder
+  → Tú decides qué revisar       →   → Sistema detecta: dominio + infraestructura afectados
+  → Tú buscas las convenciones   →   → domain-expert diseña la entidad
+  → Tú recuerdas el HasConversion→   → infrastructure-expert da la configuración EF Core
+```
+
+---
+
+### Los 6 agentes expertos
+
+Cada agente tiene un system prompt especializado con conocimiento específico de CalSystem: convenciones, archivos actuales, patrones correctos e incorrectos.
+
+#### domain-expert
+
+| Campo | Valor |
+|-------|-------|
+| **Archivo** | `.claude/agents/domain-expert.md` |
+| **Model** | claude-sonnet-4-6 |
+| **Tools** | Read, Glob, Grep |
+| **Atajo** | `/domain-expert` |
+
+**¿Qué sabe?**
+- Diseño DDD: cuándo crear una entidad vs un value object vs solo una propiedad
+- Convenciones: `private set`, constructor privado, factory method `Create(...)`, `= default!;`
+- Cómo diseñar `IServiceOrderRepository` (qué métodos, qué firma)
+- Invariantes de dominio: qué validar en el factory method, qué proteger en los métodos de comportamiento
+- Dónde no poner lógica de negocio: no en services, no en handlers, siempre en la entidad
+
+**¿Cuándo invocarlo?**
+- Agregar o modificar una entidad (ServiceOrder, Technician, nueva entidad)
+- Agregar o modificar un enum (OrderStatus, nuevo enum)
+- Diseñar o cambiar `IServiceOrderRepository`
+- Cualquier pregunta sobre si algo viola DDD
+
+**¿Qué entrega?**
+- El archivo C# completo listo para usar
+- Justificación de cada decisión de diseño DDD
+- Lista de qué otras capas deben actualizarse en consecuencia
+
+---
+
+#### application-expert
+
+| Campo | Valor |
+|-------|-------|
+| **Archivo** | `.claude/agents/application-expert.md` |
+| **Model** | claude-sonnet-4-6 |
+| **Tools** | Read, Glob, Grep, Bash |
+| **Atajo** | `/app-expert` |
+
+**¿Qué sabe?**
+- CQRS con MediatR 12: cuándo es Command (muta estado) vs Query (solo lectura)
+- Estructura de los 3 archivos por caso de uso: `Command.cs` + `Handler.cs` + `DTO.cs`
+- Cómo implementar `IRequest<T>` e `IRequestHandler<TRequest, TResponse>`
+- Registro automático con `RegisterServicesFromAssembly` en `DependencyInjection.cs`
+- Qué retorna cada tipo: Commands → Guid o bool / Queries → IEnumerable\<DTO\>
+- Pipeline behaviors de MediatR y cuándo usarlos
+
+**¿Cuándo invocarlo?**
+- Nuevo caso de uso (Command + Handler o Query + Handler)
+- Revisar si un handler existente tiene responsabilidades que no le corresponden
+- Dudas sobre qué debe ir en el Command vs el Handler vs la entidad
+- Agregar un DTO nuevo para una query
+
+**¿Qué entrega?**
+- Los 3 archivos completos del caso de uso
+- Justificación del tipo de retorno
+- Confirmación de si el handler queda registrado automáticamente en DI
+
+---
+
+#### infrastructure-expert
+
+| Campo | Valor |
+|-------|-------|
+| **Archivo** | `.claude/agents/infrastructure-expert.md` |
+| **Model** | claude-sonnet-4-6 |
+| **Tools** | Read, Glob, Grep, Bash |
+| **Atajo** | `/infra-expert` |
+
+**¿Qué sabe?**
+- Configuración de EF Core 9 + SQLite: `HasConversion<string>()`, `HasKey`, `IsRequired`, `HasMaxLength`
+- `AsNoTracking()` en queries de solo lectura — cuándo y dónde
+- Cuándo usar `EnsureCreated()` vs migraciones (`dotnet ef migrations add`)
+- Implementación de repositorios: cómo traducir la interfaz del Domain a EF Core
+- `SaveChangesAsync()` después de mutaciones, `FindAsync`/`FirstOrDefaultAsync` para lecturas
+- Registro en `AddInfrastructure(connectionString)`: `AddDbContext` + `AddScoped`
+
+**¿Cuándo invocarlo?**
+- Agregar una nueva entidad al `AppDbContext`
+- Implementar un método nuevo en `ServiceOrderRepository`
+- Cambio de esquema que requiere migración
+- Dudas sobre performance de queries EF Core (N+1, carga lazy vs eager)
+
+**¿Qué entrega?**
+- Cambios exactos en `AppDbContext.cs` (DbSet + OnModelCreating)
+- Implementación del repositorio con el método nuevo
+- Comando de migración exacto si aplica
+- Confirmación de registro en DI
+
+---
+
+#### api-expert
+
+| Campo | Valor |
+|-------|-------|
+| **Archivo** | `.claude/agents/api-expert.md` |
+| **Model** | claude-sonnet-4-6 |
+| **Tools** | Read, Glob, Grep, Bash |
+| **Atajo** | `/api-expert` |
+
+**¿Qué sabe?**
+- Diseño RESTful: qué método HTTP usar (POST para crear, PUT para actualizar, GET para leer)
+- Status codes correctos: 201 Created, 200 OK, 404 Not Found, 400 Bad Request
+- Cómo conectar MediatR: `await _mediator.Send(new MiCommand(...))` en el controller
+- Atributos de documentación Swagger: `[ProducesResponseType]`, `[SwaggerOperation]`
+- DTOs de request: cuándo crear una clase separada vs usar el Command directamente
+- Configuración de middleware en `Program.cs`
+
+**¿Cuándo invocarlo?**
+- Agregar un endpoint nuevo
+- Revisar status codes de endpoints existentes
+- Configurar Swagger para un endpoint
+- Cambios en `Program.cs` (nuevo middleware, nueva configuración)
+
+**¿Qué entrega?**
+- El método del controller completo con todos sus atributos
+- El DTO de request si el endpoint lo necesita
+- Tabla de status codes con justificación semántica
+- Nota sobre el Command/Query que debe existir en Application
+
+---
+
+#### test-expert
+
+| Campo | Valor |
+|-------|-------|
+| **Archivo** | `.claude/agents/test-expert.md` |
+| **Model** | claude-sonnet-4-6 |
+| **Tools** | Read, Glob, Grep, Bash |
+| **Atajo** | `/test-expert` |
+
+**¿Qué sabe?**
+- Ciclo TDD completo: escribir el test primero (rojo) → implementar mínimo (verde) → refactorizar
+- Convención de nombres: `Handle_[Condición]_[ResultadoEsperado]`
+- Moq: `Setup(r => r.MiMetodo(...)).Returns(...)`, `Verify(..., Times.Once)`
+- FluentAssertions: `.Should().Be()`, `.Should().NotBe()`, `.Should().BeEmpty()`, etc.
+- Cuántos tests: happy path + recurso no encontrado + verificación de mocks por cada handler
+- `[Fact]` vs `[Theory]` + `[InlineData]` cuándo usar cada uno
+
+**¿Cuándo invocarlo?**
+- Nuevo handler que necesita tests
+- Seguir TDD para una nueva funcionalidad
+- Revisar cobertura de handlers existentes
+- Dudas sobre cómo mockear algo específico con Moq
+
+**¿Qué entrega?**
+- La clase de test completa (no fragmentos)
+- Output de `dotnet test` después de ejecutar
+- Lista de casos cubiertos y pendientes
+
+---
+
+#### architecture-expert
+
+| Campo | Valor |
+|-------|-------|
+| **Archivo** | `.claude/agents/architecture-expert.md` |
+| **Model** | claude-sonnet-4-6 |
+| **Tools** | Read, Glob, Grep |
+| **Atajo** | `/arch-expert` |
+
+**¿Qué sabe?**
+- Jerarquía de dependencias de Clean Architecture: Domain ← Application ← Infrastructure ← Api
+- Cómo leer los `.csproj` para detectar referencias incorrectas entre proyectos
+- Principios SOLID aplicados a este proyecto: SRP en handlers, DIP con repositorios, ISP en interfaces
+- Señales de violación: controller que accede a DbContext, handler que usa HttpContext, entidad que llama repositorio
+- Cuándo un cambio introduce deuda arquitectural vs cuándo es una violación bloqueante
+
+**¿Cuándo invocarlo?**
+- Cambio que toca múltiples capas (domain + infra, app + api)
+- Antes de agregar una referencia nueva entre proyectos
+- Revisión de si un diseño propuesto cumple Clean Architecture
+- Cuando el `/validate` reportó una violación de arquitectura
+
+**¿Qué entrega?**
+- Veredicto CUMPLE / VIOLA con evidencia (archivo + línea)
+- Corrección exacta si hay violación
+- Evaluación de riesgos del diseño propuesto a futuro
+
+---
+
+### El orquestador /consult
+
+`/consult` es el punto de entrada principal del sistema. Analiza la tarea y decide automáticamente qué expertos invocar.
+
+**Uso:**
+```
+/consult                                    ← auto desde git diff
+/consult agregar campo CalibrationDate      ← auto por keywords
+/consult @domain nueva entidad Equipment    ← fuerza experto específico
+/consult @domain @infra entidad + repo      ← fuerza múltiples expertos
+/consult @test AssignTechnicianHandler      ← fuerza solo test-expert
+```
+
+#### Modo automático — enrutamiento por keywords
+
+Cuando describes la tarea en texto libre, el orquestador detecta keywords y enruta:
+
+| Keywords en tu descripción | Expertos invocados |
+|---------------------------|-------------------|
+| entidad, entity, ServiceOrder, Technician, enum, IRepository | **domain** |
+| handler, command, query, MediatR, IRequest, DTO | **application** |
+| migración, EF Core, DbContext, repositorio, SQLite, tabla | **infrastructure** |
+| endpoint, controller, HTTP, Swagger, POST, GET, PUT | **api** |
+| test, prueba, mock, xunit, assert, TDD, FluentAssertions | **test** |
+| arquitectura, clean, capas, layer, DI, SOLID | **architecture** |
+| Tarea que afecta múltiples capas | todos los relevantes + **architecture** |
+
+#### Modo automático — enrutamiento por archivos git
+
+Cuando no hay descripción, el orquestador lee `git diff` y enruta según archivos modificados:
+
+| Archivos en git diff | Expertos |
+|---------------------|----------|
+| `Domain/Entities/` | domain + architecture |
+| `Domain/Interfaces/` | domain + application |
+| `Application/Commands/` o `Queries/` | application + test |
+| `Infrastructure/Persistence/` | infrastructure |
+| `Infrastructure/DependencyInjection.cs` | infrastructure + architecture |
+| `Api/Controllers/` | api |
+| `Api/Program.cs` | api + architecture |
+| `tests/` | test |
+| 3+ capas afectadas | todos los relevantes + architecture |
+
+#### Modo manual — forzar expertos con `@`
+
+Cuando ya sabes qué experto necesitas, usa el prefijo `@` para omitir el enrutamiento automático:
+
+| Flag | Experto forzado |
+|------|----------------|
+| `@domain` | domain-expert |
+| `@app` | application-expert |
+| `@infra` | infrastructure-expert |
+| `@api` | api-expert |
+| `@test` | test-expert |
+| `@arch` | architecture-expert |
+
+Puedes combinar varios `@` en el mismo comando para invocar múltiples expertos.
+
+---
+
+### Atajos manuales por experto
+
+Cuando ya sabes exactamente qué experto necesitas, los atajos directos son más rápidos que pasar por el orquestador:
+
+| Comando | Experto | Cuándo usarlo |
+|---------|---------|---------------|
+| `/domain-expert diseñar entidad Equipment` | domain-expert | Preguntas puramente de dominio DDD |
+| `/app-expert nuevo handler para cerrar orden` | application-expert | Diseño de casos de uso CQRS |
+| `/infra-expert agregar DbSet<Equipment>` | infrastructure-expert | Cambios en EF Core o repositorios |
+| `/api-expert nuevo endpoint DELETE /api/orders/{id}` | api-expert | Diseño o revisión de endpoints |
+| `/test-expert cubrir CloseOrderHandler` | test-expert | Escribir o revisar tests |
+| `/arch-expert revisar si este diseño viola límites` | architecture-expert | Auditoría arquitectural |
+
+La diferencia entre `/consult @domain ...` y `/domain-expert ...` es solo conveniencia — ambos invocan el mismo agente.
+
+---
+
+### Flujo de trabajo con expertos
+
+#### Ejemplo 1: agregar nueva funcionalidad completa
+
+```
+Tarea: "Agregar entidad Equipment con su endpoint GET /api/equipment"
+
+1. /consult agregar entidad Equipment con endpoint GET
+           │
+           ├── Detecta: entidad (domain) + endpoint (api)
+           │   + múltiples capas → agrega architecture
+           │
+           ├── 🏛️ domain-expert
+           │   → Diseña Equipment.cs con private setters, Create(), XML docs
+           │   → "Impactos: infra necesita DbSet, app necesita GetEquipmentQuery"
+           │
+           ├── 🌐 api-expert
+           │   → Diseña EquipmentController.cs con GET /api/equipment
+           │   → "Necesita GetEquipmentQuery en Application"
+           │
+           └── 🏗️ architecture-expert
+               → "Equipment.cs en Domain/Entities: ✅ correcto"
+               → "Controller depende de Application vía MediatR: ✅ correcto"
+
+2. /app-expert implementar GetEquipmentQuery con handler
+   → application-expert diseña Query + Handler + EquipmentDto
+
+3. /infra-expert agregar Equipment al AppDbContext
+   → infrastructure-expert da DbSet + OnModelCreating + registro en DI
+
+4. /test-expert cubrir GetEquipmentHandler
+   → test-expert escribe los tests antes del handler (TDD)
+```
+
+#### Ejemplo 2: revisión rápida de un cambio
+
+```
+Acabo de modificar ServiceOrder.cs para agregar un campo.
+
+/consult
+│
+└── Orquestador ejecuta: git diff --name-only HEAD
+    → detecta: Domain/Entities/ServiceOrder.cs
+    → enruta a: domain-expert + architecture-expert
+    │
+    ├── 🏛️ domain-expert
+    │   → revisa que el campo tenga private set
+    │   → verifica que el factory method Create() fue actualizado
+    │   → avisa si se necesita migración (pero no la hace él)
+    │
+    └── 🏗️ architecture-expert
+        → verifica que no se introdujo ninguna dependencia nueva
+        → confirma que las demás capas siguen referenciando Domain correctamente
+```
+
+---
+
+### ¿Qué hace la IA en cada proceso?
+
+Esta sección describe el comportamiento interno de la IA en cada proceso del sistema de expertos.
+
+#### Proceso: `/consult` sin argumentos
+
+```
+Claude ejecuta:
+  1. Bash → git diff --name-only HEAD (lee archivos modificados)
+  2. Analiza la lista de rutas contra la tabla de enrutamiento
+  3. Construye la lista de expertos a invocar
+  4. Por cada experto: Agent(subagent_type: "nombre-expert", prompt: contexto completo)
+  5. Consolida las respuestas en secciones etiquetadas
+  6. Escribe la sección "Plan de acción consolidado" con el orden de implementación
+```
+
+**Variables que influyen en el enrutamiento:**
+- Número de capas afectadas → si son 3+, siempre agrega architecture-expert
+- Si hay `Domain/Entities/` en el diff → siempre domain + architecture (juntos)
+- Si hay `Application/Commands/` → siempre application + test (el handler necesita tests)
+
+#### Proceso: `/consult [descripción]` con texto
+
+```
+Claude ejecuta:
+  1. Analiza $ARGUMENTS buscando keywords de cada capa
+  2. Construye la lista de expertos por coincidencias
+  3. Si hay múltiples capas → agrega architecture-expert
+  4. Invoca los expertos en paralelo con el texto completo de la tarea
+  5. Si un experto señala dependencias con otra capa, lo agrega a la lista
+```
+
+**Razonamiento interno:** el orquestador no solo mapea keywords, también evalúa si la tarea completa cruzará capas aunque la descripción no lo diga explícitamente (por ejemplo, "agregar campo" siempre afecta domain + infra aunque el usuario solo mencione la entidad).
+
+#### Proceso: agente domain-expert ejecutando
+
+```
+Claude (como domain-expert) ejecuta:
+  1. Read → src/CalSystem.Domain/Entities/ (lee entidades existentes)
+  2. Glob → busca todos los archivos en Domain/
+  3. Grep → busca la interfaz IServiceOrderRepository
+  4. Analiza: ¿el cambio viola alguna invariante? ¿hay private setters? ¿factory method?
+  5. Escribe el código C# nuevo o corregido
+  6. Lista los archivos de otras capas que deben actualizarse
+```
+
+**Qué NO hace:** no escribe en Infrastructure, no mira controllers, no corre `dotnet build`.
+Su scope es exclusivamente Domain — esa restricción de tools (Read, Glob, Grep — sin Bash) es intencional.
+
+#### Proceso: agente application-expert ejecutando
+
+```
+Claude (como application-expert) ejecuta:
+  1. Read → src/CalSystem.Application/ (lee Commands, Queries, Handlers existentes)
+  2. Read → src/CalSystem.Domain/Interfaces/ (lee IServiceOrderRepository)
+  3. Analiza: ¿es Command o Query? ¿qué retorna? ¿necesita nuevo método en repositorio?
+  4. Escribe los 3 archivos: Command/Query + Handler + DTO (si aplica)
+  5. Verifica que queda registrado en RegisterServicesFromAssembly
+  6. Puede ejecutar Bash para confirmar estructura o dependencias
+```
+
+#### Proceso: agente infrastructure-expert ejecutando
+
+```
+Claude (como infrastructure-expert) ejecuta:
+  1. Read → AppDbContext.cs (lee DbSets y OnModelCreating actuales)
+  2. Read → ServiceOrderRepository.cs (lee implementaciones existentes)
+  3. Read → DependencyInjection.cs (lee qué está registrado)
+  4. Escribe: cambios en OnModelCreating + nuevo DbSet + implementación de repositorio
+  5. Bash → puede ejecutar dotnet ef migrations list para ver estado actual
+  6. Da el comando exacto de migración si es necesario
+```
+
+#### Proceso: agente test-expert ejecutando (modo TDD)
+
+```
+Claude (como test-expert) ejecuta:
+  1. Read → tests/CalSystem.Tests/ (lee tests existentes para mantener estilo)
+  2. Read → el Handler a testear (lee qué parámetros acepta, qué retorna)
+  3. Escribe el test PRIMERO (fase roja) — antes de que exista el handler
+  4. Bash → dotnet test (confirma que el test falla con el error correcto)
+  5. Espera que el handler sea implementado por application-expert
+  6. Bash → dotnet test (confirma que el test pasa)
+```
+
+#### Proceso: agente architecture-expert ejecutando
+
+```
+Claude (como architecture-expert) ejecuta:
+  1. Glob → *.csproj (lee todos los archivos de proyecto)
+  2. Grep → busca <ProjectReference> en cada .csproj
+  3. Construye el grafo de dependencias actual
+  4. Compara contra la jerarquía permitida: Domain ← App ← Infra ← Api
+  5. Read → archivos específicos involucrados en la tarea
+  6. Grep → busca using statements sospechosos (Infrastructure en Application, etc.)
+  7. Emite veredicto con evidencia concreta y corrección si aplica
+```
+
+**Nota sobre tools restringidas:** architecture-expert tiene solo Read, Glob, Grep (sin Bash) porque su trabajo es análisis estático — leer archivos y referencias. No necesita ejecutar comandos, y restringirlo lo hace más predecible y rápido.
+
+---
+
+## 6. Hooks en settings.json
 
 ### Estructura base
 
@@ -462,7 +925,7 @@ Bloqueante: NO (pero despierta a Claude si hay problema)
 
 ---
 
-## 6. Flujos de trabajo
+## 7. Flujos de trabajo de validación
 
 ### Flujo de edición normal
 
@@ -516,7 +979,7 @@ FIN: reporte de severidades:
 
 ---
 
-## 7. Cómo crear los tuyos
+## 8. Cómo crear los tuyos
 
 ### Template de Command
 
@@ -703,9 +1166,11 @@ $command  = $input.command     # para Bash
 
 ---
 
-## 8. Referencia rápida
+## 9. Referencia rápida
 
 ### ¿Qué usar cuándo?
+
+#### Validación de calidad
 
 | Situación | Herramienta |
 |-----------|-------------|
@@ -716,6 +1181,21 @@ $command  = $input.command     # para Bash
 | El build falló al editar un .cs | Hook Op1 lo detecta → ejecuta `/validate` para el plan |
 | El commit fue bloqueado | Hook Op4 detectó build/test error → ejecuta `/validate` |
 | Claude despertó con un mensaje de validate-agent | Hook Op3 detectó problema → sigue las instrucciones |
+
+#### Consulta a expertos
+
+| Situación | Herramienta |
+|-----------|-------------|
+| No sé qué capas afecta mi tarea | `/consult [descripción]` — enruta automáticamente |
+| Acabo de editar archivos, quiero revisión experta | `/consult` (sin args, lee git diff) |
+| Solo quiero opinión de dominio DDD | `/domain-expert [descripción]` |
+| Quiero diseñar un nuevo caso de uso CQRS | `/app-expert [descripción]` |
+| Tengo dudas sobre EF Core o migraciones | `/infra-expert [descripción]` |
+| Necesito diseñar un endpoint o revisar status codes | `/api-expert [descripción]` |
+| Quiero escribir tests o seguir TDD | `/test-expert [descripción]` |
+| Quiero verificar que no violé Clean Architecture | `/arch-expert [descripción]` |
+| Tarea que toca domain + infra (nueva entidad) | `/consult @domain @infra [descripción]` |
+| Nueva funcionalidad completa (todas las capas) | `/consult [descripción]` — enruta a todos |
 
 ### Comparativa de commands
 
@@ -738,5 +1218,48 @@ $command  = $input.command     # para Bash
 | **Velocidad** | ~5s | Background | ~15s | ~30-60s |
 
 ---
+
+### Mapa del sistema de expertos
+
+```
+Tu tarea
+   │
+   ▼
+/consult [descripción o vacío]
+   │
+   ├── ¿Contiene @domain/@app/@infra/@api/@test/@arch?
+   │   └── SÍ → modo manual: invoca SOLO esos expertos
+   │
+   └── NO → modo automático
+       ├── Sin args → lee git diff → enruta por archivos modificados
+       └── Con args → analiza keywords → enruta por tecnología mencionada
+           │
+           ▼
+   Lista de expertos a invocar
+           │
+   ┌───────┼────────┬────────┬──────────┬──────────┐
+   ▼       ▼        ▼        ▼          ▼          ▼
+domain  app     infra    api        test      arch
+expert  expert  expert   expert     expert    expert
+   │       │        │        │          │          │
+   └───────┴────────┴────────┴──────────┴──────────┘
+                           │
+                           ▼
+              Respuestas por sección etiquetada
+                           │
+                           ▼
+              ✅ Plan de acción consolidado
+              (orden: Domain → App → Infra → Api → Tests)
+```
+
+### Comparativa de expertos
+
+| | domain | application | infrastructure | api | test | architecture |
+|--|:------:|:-----------:|:--------------:|:---:|:----:|:------------:|
+| **Capa** | Domain | Application | Infrastructure | Api | Tests | Transversal |
+| **Tools** | R,G,Grep | R,G,Grep,Bash | R,G,Grep,Bash | R,G,Grep,Bash | R,G,Grep,Bash | R,G,Grep |
+| **Escribe código** | ✅ | ✅ | ✅ | ✅ | ✅ | Sugerencias |
+| **Ejecuta comandos** | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **Emite veredicto** | Diseño DDD | Diseño CQRS | Config EF Core | REST semántico | Cobertura | CUMPLE/VIOLA |
 
 *Guía generada con Claude Code · Proyecto CalSystem · Phoenix Calibration DR*

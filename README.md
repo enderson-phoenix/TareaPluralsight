@@ -154,14 +154,39 @@ HTTP Request
 
 ## Claude Code Tooling
 
-Este proyecto incluye comandos y agents personalizados para validación de calidad:
+### Validación de calidad
 
 | Herramienta | Uso |
 |-------------|-----|
 | `/validate` | Valida compilación, tests, arquitectura y migraciones |
 | `/validate-agent` | Análisis profundo en subagente aislado |
-| `/validate-smart` | Validación interactiva por severidad (🔴🟡🔵) |
+| `/validate-smart` | Validación interactiva por severidad |
 | `/new-entity` | Genera entidades de dominio DDD |
 | Hooks automáticos | Build en cada edición .cs, gates antes de commits |
+
+### Sistema de agentes expertos
+
+Orquestador inteligente que enruta automáticamente a los expertos correctos según la tarea:
+
+| Herramienta | Uso |
+|-------------|-----|
+| `/consult` | Orquestador: auto-detecta capas afectadas y enruta a los expertos |
+| `/consult @domain ...` | Consulta solo al experto de dominio (DDD, entidades) |
+| `/consult @app ...` | Consulta solo al experto de Application (CQRS, handlers) |
+| `/consult @infra ...` | Consulta solo al experto de Infrastructure (EF Core, SQLite) |
+| `/consult @api ...` | Consulta solo al experto de Api (controllers, Swagger) |
+| `/consult @test ...` | Consulta solo al experto de Testing (xUnit, Moq, TDD) |
+| `/consult @arch ...` | Consulta solo al experto de Arquitectura (Clean Architecture) |
+
+**Atajos directos por experto:**
+
+| Herramienta | Especialidad |
+|-------------|-------------|
+| `/domain-expert` | Entidades DDD, enums, interfaces de repositorio |
+| `/app-expert` | Commands, Queries, Handlers, DTOs, MediatR |
+| `/infra-expert` | EF Core, AppDbContext, repositorios, migraciones |
+| `/api-expert` | Controllers, endpoints HTTP, Swagger, Program.cs |
+| `/test-expert` | xUnit, Moq, FluentAssertions, ciclo TDD |
+| `/arch-expert` | Clean Architecture, límites de capas, SOLID |
 
 Ver `.claude/GUIDE.md` para documentación completa.
