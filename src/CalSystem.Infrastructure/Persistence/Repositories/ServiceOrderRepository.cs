@@ -22,6 +22,7 @@ public class ServiceOrderRepository : IServiceOrderRepository
 
     public async Task<ServiceOrder?> GetByIdAsync(Guid id)
     {
+        // Sin AsNoTracking: UpdateAsync necesita que EF rastree la entidad para detectar cambios.
         return await _context.ServiceOrders.FindAsync(id);
     }
 
