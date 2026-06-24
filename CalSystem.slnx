@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CalSystem.Api/CalSystem.Api.csproj" />
+    <Project Path="src/CalSystem.Application/CalSystem.Application.csproj" />
+    <Project Path="src/CalSystem.Domain/CalSystem.Domain.csproj" />
+    <Project Path="src/CalSystem.Infrastructure/CalSystem.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CalSystem.Tests/CalSystem.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,54 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "statusMessage": "change-validator: checking build...",
+            "command": "try { $p = ($env:CLAUDE_TOOL_INPUT | ConvertFrom-Json -EA Stop).file_path; if ($p -match '\\.cs$') { Write-Host ''; Write-Host ('-- change-validator [Op1]: ' + [IO.Path]::GetFileName($p) + ' editado'); $r = dotnet build --no-incremental -v q 2>&1; $e = ($r | Select-String ' error ').Count; $w = ($r | Select-String ' warning ').Count; if ($e -gt 0) { Write-Host ('[FAIL] ' + $e + ' error(s) de compilacion. Ejecuta /validate para detalles.'); $r | Select-String ' error ' | Select-Object -First 2 | ForEach-Object { Write-Host ('  ' + $_.Line) } } elseif ($w -gt 0) { Write-Host ('[WARN] Build OK con ' + $w + ' warning(s).') } else { Write-Host '[PASS] Build OK' } } } catch {}"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "if": "Bash(git commit*)",
+            "statusMessage": "change-validator [Op4]: pre-commit build+test...",
+            "command": "Write-Host '-- change-validator [Op4]: pre-commit rapido'; $b = dotnet build --no-incremental -v q 2>&1; if ($LASTEXITCODE -ne 0) { Write-Host '[BLOQUEADO] Build fallido. Ejecuta /validate para el plan de correccion.'; exit 1 }; $t = dotnet test --no-build -v q 2>&1; if ($LASTEXITCODE -ne 0) { Write-Host '[BLOQUEADO] Tests fallando. Ejecuta /validate para ver que fallo.'; exit 1 }; Write-Host '[OK] Build y tests pasaron.'"
+          },
+          {
+            "type": "agent",
+            "if": "Bash(git commit*)",
+            "model": "claude-sonnet-4-6",
+            "statusMessage": "validate-smart [Op5]: severity analysis before commit...",
+            "timeout": 90,
+            "prompt": "A git commit is about to run in the CalSystem .NET 8 Clean Architecture project. The previous hook already verified build and tests pass. Now run a deeper severity analysis: (1) Run git diff --cached --name-only to see staged .cs files. (2) If entities in Domain/Entities are staged: check src/CalSystem.Infrastructure/Migrations/ for a recent migration covering those changes - IMPORTANT if missing. (3) If new interfaces or repos are staged: check src/CalSystem.Infrastructure/DependencyInjection.cs for registrations - IMPORTANT if unregistered. (4) Read src/CalSystem.Application/CalSystem.Application.csproj and confirm it does not reference CalSystem.Infrastructure - CRITICAL if it does. (5) Check staged .cs files for .Result or .Wait() blocking calls - IMPORTANT if found. Classify findings: CRITICAL blocks the commit, IMPORTANT warns but allows, SUGGESTION is informational. Output a concise severity report. If CRITICAL found, state BLOCKED clearly with details."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "asyncRewake": true,
+            "rewakeMessage": "validate-agent [Op3] detected issues after this turn:",
+            "rewakeSummary": "validate-agent found issues — see details above",
+            "statusMessage": "validate-agent [Op3]: background validation...",
+            "command": "try { $cs = (git diff --name-only HEAD 2>&1) | Where-Object { $_ -match '\\.cs$' }; if ($cs -and $cs.Count -gt 0) { Write-Host ('validate-agent [Op3]: ' + $cs.Count + ' .cs file(s) changed — validating'); $b = dotnet build --no-incremental -v q 2>&1; if ($LASTEXITCODE -ne 0) { Write-Host '[FAIL] Errores de compilacion encontrados:'; $b | Select-String ' error ' | Select-Object -First 3 | ForEach-Object { Write-Host ('  ' + $_.Line) }; Write-Host 'Ejecuta /validate para el plan de correccion completo.'; exit 2 }; $t = dotnet test --no-build -v q 2>&1; if ($LASTEXITCODE -ne 0) { Write-Host '[FAIL] Tests fallando — ejecuta /validate para el plan de correccion.'; exit 2 }; Write-Host '[PASS] validate-agent [Op3]: build y tests OK.' } } catch {}"
+          }
+        ]
+      }
+    ]
+  }
+}
