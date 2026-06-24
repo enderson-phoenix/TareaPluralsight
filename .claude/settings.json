@@ -1,5 +1,17 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "statusMessage": "context-manager: cargando índice de contexto...",
+            "command": "if (Test-Path '.claude/context/INDEX.md') { Write-Host ''; Write-Host '=== context-manager: indice de contexto ==='; Get-Content '.claude/context/INDEX.md' | Select-Object -First 25; Write-Host '===========================================' }"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
@@ -36,6 +48,16 @@
       }
     ],
     "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "statusMessage": "context-manager: verificando commits sin contexto...",
+            "command": "try { $ahead = (git log --oneline origin/main..HEAD 2>&1); if ($ahead -and $ahead.Count -gt 0) { Write-Host ('context-manager: ' + $ahead.Count + ' commit(s) sin contexto guardado. Ejecuta /ctx-save para actualizar el indice.') } } catch {}"
+          }
+        ]
+      },
       {
         "hooks": [
           {

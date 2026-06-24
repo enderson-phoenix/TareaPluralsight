@@ -266,7 +266,10 @@ dotnet ef migrations add NombreMigracion \
 | `/validate-smart` | Validación interactiva por severidad (🔴🟡🔵) |
 | `/new-entity` | Genera entidades de dominio DDD listas para usar |
 | `/crear-pr [título]` | Crea rama feature, commit, push y PR en GitHub sin tocar main |
-| Hooks automáticos | Build en cada edición .cs, gates antes de commits |
+| `/ctx-save [título]` | Guarda mini-contexto del trabajo actual en el índice |
+| `/ctx-search [@tag\|keyword]` | Busca contexto específico sin leer todos los archivos |
+| `/ctx-cleanup` | Archiva contextos de más de 6 meses al backlog |
+| Hooks automáticos | Build en cada edición .cs, gates antes de commits, índice al inicio de sesión |
 
 ### Sistema de agentes expertos
 

@@ -92,6 +92,11 @@ dotnet ef database update \
 - `/consult` — orquestador: auto-detecta capas afectadas y enruta a expertos
 - `/frontend-expert` — experto Blazor WASM (componentes, servicios, CSS)
 - `/crear-pr [título]` — crea rama feature, commit, push y PR en GitHub (no toca main)
+- `/ctx-save [título]` — guarda el contexto del trabajo actual en `.claude/context/`
+- `/ctx-search [@tag | keyword]` — busca en el índice de contexto sin leer todos los archivos
+- `/ctx-cleanup` — archiva contextos > 6 meses (grace period para los más consultados)
 - `change-validator` — agente quality gate con 7 checks automáticos
 - `pr-creator` — agente que automatiza el flujo completo de Pull Request
-- Hooks en `.claude/settings.json` — validación automática en edición y commits
+- `context-manager` — agente que crea y mantiene mini-contextos indexados
+- Hooks en `.claude/settings.json` — validación automática en edición, commits y SessionStart
+- `.claude/context/INDEX.md` — índice compacto auto-cargado al inicio de cada sesión
