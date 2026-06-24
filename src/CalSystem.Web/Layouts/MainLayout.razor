@@ -1,10 +1,19 @@
 @inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Routing
 
 <header class="app-header">
     <div>
         <div class="brand">CalSystem</div>
         <div class="subtitle">Phoenix Calibration DR — Sistema de Órdenes de Servicio</div>
     </div>
+    <nav class="app-nav">
+        <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
+            <span>📋</span> Órdenes
+        </NavLink>
+        <NavLink class="nav-link" href="/technicians">
+            <span>👤</span> Técnicos
+        </NavLink>
+    </nav>
 </header>
 
 <main class="app-body">

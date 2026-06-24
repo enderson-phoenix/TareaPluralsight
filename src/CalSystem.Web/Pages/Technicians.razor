@@ -1,0 +1,136 @@
+@page "/technicians"
+@using CalSystem.Web.Models
+@using CalSystem.Web.Services
+@inject OrderApiService Api
+
+<div class="toolbar" style="margin-bottom:24px">
+    <h1>Técnicos</h1>
+</div>
+
+<!-- Formulario para agregar técnico -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
+
+    <div class="kanban-column" style="padding:0">
+        <div class="kanban-column-header">
+            <span class="column-dot" style="background:var(--accent)"></span>
+            Registrar nuevo técnico
+        </div>
+        <div style="padding:20px">
+
+            @if (!string.IsNullOrEmpty(createError))
+            {
+                <div class="alert alert-error">@createError</div>
+            }
+            @if (createSuccess)
+            {
+                <div class="alert" style="background:rgba(16,185,129,.12);border:1px solid #10b981;color:#6ee7b7;margin-bottom:16px">
+                    Técnico registrado correctamente.
+                </div>
+            }
+
+            <div class="form-group">
+                <label class="form-label">Nombre completo</label>
+                <input class="form-control" @bind="form.Name" placeholder="Ej: Carlos López" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Correo electrónico</label>
+                <input class="form-control" @bind="form.Email" type="email" placeholder="carlos@phoenix.com" />
+            </div>
+
+            <button class="btn btn-primary" @onclick="CreateTechnician" disabled="@creating"
+                    style="width:100%;padding:10px">
+                @(creating ? "Guardando…" : "Registrar Técnico")
+            </button>
+        </div>
+    </div>
+
+    <!-- Lista de técnicos -->
+    <div class="kanban-column" style="padding:0">
+        <div class="kanban-column-header">
+            <span class="column-dot" style="background:var(--closed)"></span>
+            Técnicos registrados
+            <span class="column-count">@technicians.Count</span>
+        </div>
+        <div style="padding:12px">
+
+            @if (loadingList)
+            {
+                <div class="empty-state"><div class="loading-spinner" style="margin:auto"></div></div>
+            }
+            else if (technicians.Count == 0)
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">👤</div>
+                    Sin técnicos registrados aún
+                </div>
+            }
+            else
+            {
+                <table style="width:100%;border-collapse:collapse">
+                    <thead>
+                        <tr style="text-align:left;font-size:.72rem;color:var(--text-muted);border-bottom:1px solid var(--border)">
+                            <th style="padding:6px 8px">Nombre</th>
+                            <th style="padding:6px 8px">Correo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var t in technicians)
+                        {
+                            <tr style="border-bottom:1px solid var(--border);font-size:.82rem">
+                                <td style="padding:10px 8px;font-weight:600">@t.Name</td>
+                                <td style="padding:10px 8px;color:var(--text-muted)">@t.Email</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+
+</div>
+
+@code {
+    List<TechnicianDto> technicians = [];
+    CreateTechnicianRequest form = new();
+    bool loadingList = true;
+    bool creating = false;
+    bool createSuccess = false;
+    string createError = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadTechnicians();
+
+    async Task LoadTechnicians()
+    {
+        loadingList = true;
+        try { technicians = await Api.GetTechniciansAsync() ?? []; }
+        catch { technicians = []; }
+        finally { loadingList = false; }
+    }
+
+    async Task CreateTechnician()
+    {
+        createSuccess = false;
+        createError = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(form.Name) || string.IsNullOrWhiteSpace(form.Email))
+        {
+            createError = "Nombre y correo son requeridos.";
+            return;
+        }
+
+        creating = true;
+        var response = await Api.CreateTechnicianAsync(form);
+        creating = false;
+
+        if (response.IsSuccessStatusCode)
+        {
+            form = new();
+            createSuccess = true;
+            await LoadTechnicians();
+        }
+        else
+        {
+            createError = "Error al registrar el técnico.";
+        }
+    }
+}

@@ -16,4 +16,10 @@ public class OrderApiService(HttpClient http)
 
     public Task<HttpResponseMessage> CloseAsync(Guid id, CloseOrderRequest request) =>
         http.PutAsJsonAsync($"/api/orders/{id}/close", request);
+
+    public Task<List<TechnicianDto>?> GetTechniciansAsync() =>
+        http.GetFromJsonAsync<List<TechnicianDto>>("/api/technicians");
+
+    public Task<HttpResponseMessage> CreateTechnicianAsync(CreateTechnicianRequest request) =>
+        http.PostAsJsonAsync("/api/technicians", request);
 }
