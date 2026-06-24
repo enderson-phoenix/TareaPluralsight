@@ -21,6 +21,12 @@ builder.Services.AddInfrastructure(
     builder.Configuration.GetConnectionString("DefaultConnection")!
 );
 
+builder.Services.AddCors(options =>
+    options.AddDefaultPolicy(policy =>
+        policy.WithOrigins("http://localhost:5200")
+              .AllowAnyMethod()
+              .AllowAnyHeader()));
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -37,6 +43,7 @@ app.UseSwaggerUI(c =>
 });
 
 app.UseHttpsRedirection();
+app.UseCors();
 app.MapControllers();
 
 app.Run();

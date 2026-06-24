@@ -1,0 +1,194 @@
+@page "/"
+@using CalSystem.Web.Models
+@using CalSystem.Web.Services
+@using CalSystem.Web.Components
+@inject OrderApiService Api
+
+<!-- Flujo visual del sistema -->
+<div class="flow-diagram">
+    <div class="flow-step">
+        <div class="flow-step-dot" style="background:rgba(245,158,11,.2);color:#f59e0b">📋</div>
+        <span class="flow-label">Pendiente</span>
+    </div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">
+        <div class="flow-step-dot" style="background:rgba(99,102,241,.2);color:#6366f1">👤</div>
+        <span class="flow-label">Asignar técnico</span>
+    </div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">
+        <div class="flow-step-dot" style="background:rgba(59,130,246,.2);color:#3b82f6">🔧</div>
+        <span class="flow-label">En Progreso</span>
+    </div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">
+        <div class="flow-step-dot" style="background:rgba(16,185,129,.2);color:#10b981">✓</div>
+        <span class="flow-label">Cerrado</span>
+    </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+    <div>
+        <h1>Órdenes de Servicio</h1>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+        <div class="stats">
+            <span class="stat-chip pending">Pendiente @pending.Count</span>
+            <span class="stat-chip progress">En Progreso @inProgress.Count</span>
+            <span class="stat-chip closed">Cerrado @closed.Count</span>
+        </div>
+        <button class="btn btn-new" @onclick="ShowCreate">+ Nueva Orden</button>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(loadError))
+{
+    <div class="alert alert-error" style="margin-bottom:20px">
+        @loadError — ¿Está corriendo la API en http://localhost:5112?
+    </div>
+}
+
+<!-- Kanban -->
+<div class="kanban">
+    <!-- Pendiente -->
+    <div class="kanban-column">
+        <div class="kanban-column-header">
+            <span class="column-dot" style="background:#f59e0b"></span>
+            Pendiente
+            <span class="column-count">@pending.Count</span>
+        </div>
+        <div class="kanban-column-body">
+            @if (loading)
+            {
+                <div class="empty-state"><div class="loading-spinner" style="margin:auto"></div></div>
+            }
+            else if (pending.Count == 0)
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">📋</div>
+                    Sin órdenes pendientes
+                </div>
+            }
+            else
+            {
+                @foreach (var order in pending)
+                {
+                    <OrderCard Order="order" OnAction="Refresh" />
+                }
+            }
+        </div>
+    </div>
+
+    <!-- En Progreso -->
+    <div class="kanban-column">
+        <div class="kanban-column-header">
+            <span class="column-dot" style="background:#3b82f6"></span>
+            En Progreso
+            <span class="column-count">@inProgress.Count</span>
+        </div>
+        <div class="kanban-column-body">
+            @if (loading)
+            {
+                <div class="empty-state"><div class="loading-spinner" style="margin:auto"></div></div>
+            }
+            else if (inProgress.Count == 0)
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">🔧</div>
+                    Sin órdenes en progreso
+                </div>
+            }
+            else
+            {
+                @foreach (var order in inProgress)
+                {
+                    <OrderCard Order="order" OnAction="Refresh" />
+                }
+            }
+        </div>
+    </div>
+
+    <!-- Cerrado -->
+    <div class="kanban-column">
+        <div class="kanban-column-header">
+            <span class="column-dot" style="background:#10b981"></span>
+            Cerrado
+            <span class="column-count">@closed.Count</span>
+        </div>
+        <div class="kanban-column-body">
+            @if (loading)
+            {
+                <div class="empty-state"><div class="loading-spinner" style="margin:auto"></div></div>
+            }
+            else if (closed.Count == 0)
+            {
+                <div class="empty-state">
+                    <div class="empty-icon">✅</div>
+                    Sin órdenes cerradas
+                </div>
+            }
+            else
+            {
+                @foreach (var order in closed)
+                {
+                    <OrderCard Order="order" OnAction="Refresh" />
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@if (showCreate)
+{
+    <CreateOrderModal OnClose="HandleCreateClose" />
+}
+
+@code {
+    List<OrderDto> pending    = [];
+    List<OrderDto> inProgress = [];
+    List<OrderDto> closed     = [];
+
+    bool loading = true;
+    bool showCreate;
+    string loadError = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await Refresh();
+
+    async Task Refresh()
+    {
+        loading   = true;
+        loadError = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var results = await Task.WhenAll(
+                Api.GetByStatusAsync("Pending"),
+                Api.GetByStatusAsync("InProgress"),
+                Api.GetByStatusAsync("Closed")
+            );
+
+            pending    = results[0] ?? [];
+            inProgress = results[1] ?? [];
+            closed     = results[2] ?? [];
+        }
+        catch
+        {
+            loadError = "No se pudo conectar con la API";
+            pending = []; inProgress = []; closed = [];
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    void ShowCreate() => showCreate = true;
+
+    async Task HandleCreateClose(bool changed)
+    {
+        showCreate = false;
+        if (changed) await Refresh();
+    }
+}

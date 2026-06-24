@@ -1,0 +1,21 @@
+@code {
+    [Parameter, EditorRequired] public string Status { get; set; } = string.Empty;
+
+    string CssClass => Status.ToLower() switch
+    {
+        "pending"    => "status-badge pending",
+        "inprogress" => "status-badge inprogress",
+        "closed"     => "status-badge closed",
+        _            => "status-badge"
+    };
+
+    string Label => Status switch
+    {
+        "Pending"    => "Pendiente",
+        "InProgress" => "En Progreso",
+        "Closed"     => "Cerrado",
+        _            => Status
+    };
+}
+
+<span class="@CssClass">@Label</span>

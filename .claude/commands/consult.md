@@ -19,7 +19,7 @@ $ARGUMENTS
 
 Analiza `$ARGUMENTS`:
 
-**Modo manual** (si contiene `@domain`, `@app`, `@infra`, `@api`, `@test` o `@arch`):
+**Modo manual** (si contiene `@domain`, `@app`, `@infra`, `@api`, `@test`, `@arch` o `@frontend`):
 → Usa SOLO los expertos indicados con `@`. Ignora el enrutamiento automático.
 → Ejemplo: `/consult @domain @infra nueva entidad Equipment` → invocar domain-expert + infrastructure-expert
 
@@ -49,6 +49,7 @@ Usa los archivos modificados para determinar expertos:
 | `Infrastructure/DependencyInjection.cs` | **infrastructure** + **architecture** |
 | `Api/Controllers/` | **api** |
 | `Api/Program.cs` | **api** + **architecture** |
+| `CalSystem.Web/` o `src/CalSystem.Web/` | **frontend** + **api** |
 | `tests/` | **test** |
 | Múltiples capas (3+) | todos los relevantes + **architecture** |
 
@@ -64,6 +65,7 @@ Detecta keywords en `$ARGUMENTS` y mapea a expertos:
 | endpoint, controller, HTTP, Swagger, route, POST, GET, PUT, DELETE, status code, Api | **api** |
 | test, prueba, mock, xunit, assert, TDD, FluentAssertions, Moq, cobertura | **test** |
 | arquitectura, architecture, clean, capas, layer, SOLID, DI, boundary, violación | **architecture** |
+| blazor, razor, componente, component, frontend, UI, página, page, HttpClient, modal, CSS, estilo, wwwroot, CalSystem.Web, kanban, tarjeta | **frontend** |
 
 Si la tarea afecta múltiples capas, siempre agrega **architecture** a la lista.
 
@@ -94,6 +96,9 @@ Presenta las respuestas en secciones separadas, claramente etiquetadas:
 
 ## 🏗️ Architecture Expert
 [Respuesta del architecture-expert]
+
+## 🖥️ Frontend Expert
+[Respuesta del frontend-expert]
 ```
 
 Si un experto no fue invocado, omite su sección.
@@ -125,6 +130,7 @@ primero Domain → luego Application → luego Infrastructure → luego Api → 
 | `@api` | api-expert | Controllers, endpoints, Swagger, Program.cs |
 | `@test` | test-expert | xUnit, Moq, FluentAssertions, TDD |
 | `@arch` | architecture-expert | Clean Architecture, límites, SOLID |
+| `@frontend` | frontend-expert | Blazor WASM, Razor, HttpClient, CSS, componentes |
 
 **Ejemplos de uso:**
 ```
@@ -133,4 +139,6 @@ primero Domain → luego Application → luego Infrastructure → luego Api → 
 /consult @domain nueva entidad Equipment           ← manual: solo domain
 /consult @domain @infra nueva entidad con repositorio  ← manual: domain + infra
 /consult @test crear tests para AssignTechnicianHandler  ← manual: solo test
+/consult @frontend agregar filtro por cliente en Home.razor  ← manual: solo frontend
+/consult blazor agregar página de estadísticas  ← auto: detecta frontend + api
 ```

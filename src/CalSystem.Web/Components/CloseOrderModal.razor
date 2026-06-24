@@ -1,0 +1,52 @@
+@using CalSystem.Web.Models
+@using CalSystem.Web.Services
+@inject OrderApiService Api
+
+<div class="modal-overlay" @onclick="Cancel">
+    <div class="modal" @onclick:stopPropagation="true">
+        <h3>Cerrar Orden de Servicio</h3>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="alert alert-error">@error</div>
+        }
+
+        <div class="form-group">
+            <label class="form-label">Notas del técnico (opcional)</label>
+            <textarea class="form-control" @bind="notes"
+                      placeholder="Ej: Sensor calibrado. Lectura corregida a ±0.1°C."></textarea>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn btn-ghost" @onclick="Cancel" disabled="@busy">Cancelar</button>
+            <button class="btn btn-success" @onclick="Submit" disabled="@busy">
+                @(busy ? "Cerrando…" : "Cerrar Orden")
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Guid OrderId { get; set; }
+    [Parameter] public EventCallback<bool> OnClose { get; set; }
+
+    string? notes = null;
+    bool busy;
+    string error = string.Empty;
+
+    async Task Submit()
+    {
+        busy = true;
+        error = string.Empty;
+
+        var response = await Api.CloseAsync(OrderId, new CloseOrderRequest { Notes = notes });
+        busy = false;
+
+        if (response.IsSuccessStatusCode)
+            await OnClose.InvokeAsync(true);
+        else
+            error = "Error al cerrar la orden.";
+    }
+
+    Task Cancel() => OnClose.InvokeAsync(false);
+}

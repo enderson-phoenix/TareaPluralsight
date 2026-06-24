@@ -4,6 +4,7 @@
     <Project Path="src/CalSystem.Application/CalSystem.Application.csproj" />
     <Project Path="src/CalSystem.Domain/CalSystem.Domain.csproj" />
     <Project Path="src/CalSystem.Infrastructure/CalSystem.Infrastructure.csproj" />
+    <Project Path="src/CalSystem.Web/CalSystem.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/CalSystem.Tests/CalSystem.Tests.csproj" />

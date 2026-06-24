@@ -1,0 +1,66 @@
+@using CalSystem.Web.Models
+@using CalSystem.Web.Services
+@inject OrderApiService Api
+
+<div class="modal-overlay" @onclick="Cancel">
+    <div class="modal" @onclick:stopPropagation="true">
+        <h3>Nueva Orden de Servicio</h3>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="alert alert-error">@error</div>
+        }
+
+        <div class="form-group">
+            <label class="form-label">Cliente</label>
+            <input class="form-control" @bind="form.CustomerName" placeholder="Nombre del cliente" />
+        </div>
+        <div class="form-group">
+            <label class="form-label">Equipo</label>
+            <input class="form-control" @bind="form.Equipment" placeholder="Ej: Termómetro PT-100" />
+        </div>
+        <div class="form-group">
+            <label class="form-label">Descripción del problema</label>
+            <textarea class="form-control" @bind="form.ProblemDescription" placeholder="Describe el problema o la calibración requerida"></textarea>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn btn-ghost" @onclick="Cancel" disabled="@busy">Cancelar</button>
+            <button class="btn btn-primary" @onclick="Submit" disabled="@busy">
+                @(busy ? "Guardando…" : "Crear Orden")
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback<bool> OnClose { get; set; }
+
+    CreateOrderRequest form = new();
+    bool busy;
+    string error = string.Empty;
+
+    async Task Submit()
+    {
+        if (string.IsNullOrWhiteSpace(form.CustomerName) ||
+            string.IsNullOrWhiteSpace(form.Equipment) ||
+            string.IsNullOrWhiteSpace(form.ProblemDescription))
+        {
+            error = "Todos los campos son requeridos.";
+            return;
+        }
+
+        busy = true;
+        error = string.Empty;
+
+        var response = await Api.CreateAsync(form);
+        busy = false;
+
+        if (response.IsSuccessStatusCode)
+            await OnClose.InvokeAsync(true);
+        else
+            error = "Error al crear la orden. Verifica que la API esté corriendo.";
+    }
+
+    Task Cancel() => OnClose.InvokeAsync(false);
+}

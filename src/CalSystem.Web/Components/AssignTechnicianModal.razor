@@ -1,0 +1,61 @@
+@using CalSystem.Web.Models
+@using CalSystem.Web.Services
+@inject OrderApiService Api
+
+<div class="modal-overlay" @onclick="Cancel">
+    <div class="modal" @onclick:stopPropagation="true">
+        <h3>Asignar Técnico</h3>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <div class="alert alert-error">@error</div>
+        }
+
+        <div class="form-group">
+            <label class="form-label">ID del Técnico (GUID)</label>
+            <input class="form-control" @bind="technicianIdText"
+                   placeholder="ej: 3fa85f64-5717-4562-b3fc-2c963f66afa6" />
+            <small style="color:var(--text-muted);font-size:.72rem;margin-top:4px;display:block">
+                Ingresa cualquier GUID válido para identificar al técnico asignado.
+            </small>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn btn-ghost" @onclick="Cancel" disabled="@busy">Cancelar</button>
+            <button class="btn btn-warning" @onclick="Submit" disabled="@busy">
+                @(busy ? "Asignando…" : "Asignar")
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Guid OrderId { get; set; }
+    [Parameter] public EventCallback<bool> OnClose { get; set; }
+
+    string technicianIdText = string.Empty;
+    bool busy;
+    string error = string.Empty;
+
+    async Task Submit()
+    {
+        if (!Guid.TryParse(technicianIdText, out var techId))
+        {
+            error = "El ID del técnico debe ser un GUID válido.";
+            return;
+        }
+
+        busy = true;
+        error = string.Empty;
+
+        var response = await Api.AssignAsync(OrderId, new AssignTechnicianRequest { TechnicianId = techId });
+        busy = false;
+
+        if (response.IsSuccessStatusCode)
+            await OnClose.InvokeAsync(true);
+        else
+            error = "Error al asignar el técnico.";
+    }
+
+    Task Cancel() => OnClose.InvokeAsync(false);
+}

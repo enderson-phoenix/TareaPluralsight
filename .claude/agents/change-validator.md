@@ -1,10 +1,11 @@
 ---
 name: change-validator
 description: >
-  Quality gate para CalSystem (.NET 8 / Clean Architecture). Valida cada cambio de código:
-  compilación, tests, migraciones EF Core, límites arquitecturales, registro en DI,
-  anti-patrones de escalabilidad y contrato de API. Invocar después de cambios en entidades,
-  handlers, repositorios, migraciones o endpoints. Retorna reporte PASS/FAIL/WARN por check.
+  Quality gate para CalSystem (.NET 10 / Clean Architecture + Blazor WASM). Valida cada
+  cambio de código: compilación, tests, migraciones EF Core, límites arquitecturales,
+  registro en DI, anti-patrones de escalabilidad, contrato de API y consistencia
+  frontend/API. Invocar después de cambios en entidades, handlers, repositorios,
+  migraciones, endpoints o componentes Blazor. Retorna reporte PASS/FAIL/WARN por check.
 model: claude-sonnet-4-6
 tools: Bash, Read, Glob, Grep
 ---
@@ -34,8 +35,11 @@ Nunca aprobar un cambio que:
 dotnet build --no-incremental -v minimal 2>&1
 ```
 
+Compila toda la solución, incluyendo `CalSystem.Web` (Blazor WASM). Los archivos `.razor`
+se compilan igual que `.cs` — errores en componentes Razor aparecen aquí.
+
 - **PASS**: "Build succeeded" sin errores.
-- **FAIL**: Cualquier línea con "error CS". Reporta el error exacto, el archivo y la línea. No ejecutes más checks.
+- **FAIL**: Cualquier línea con "error CS" o "error RZ". Reporta el error exacto, el archivo y la línea. No ejecutes más checks.
 - **WARN**: "warning CS" — reporta pero continúa.
 
 ---
@@ -111,6 +115,9 @@ Verifica:
 - **PASS**: Todo lo nuevo está registrado correctamente.
 - **WARN**: Falta un registro. Indica exactamente qué interfaz y en qué archivo debe registrarse.
 
+Si el cambio añade un nuevo servicio en `src/CalSystem.Web/Services/`, verificar que esté
+registrado en `src/CalSystem.Web/Program.cs` con `builder.Services.AddScoped<T>()`.
+
 ---
 
 ## CHECK 6 — Anti-patrones de Escalabilidad
@@ -153,6 +160,10 @@ Verifica:
 
 - **PASS**: El contrato entre Application y Api es consistente.
 - **WARN**: Hay un desajuste. Indica qué property o tipo no coincide.
+
+Si el cambio modifica un endpoint (ruta, request body, response), verificar también que
+`src/CalSystem.Web/Services/OrderApiService.cs` usa la URL, método HTTP y tipo de body
+correctos. Un desajuste aquí causa errores silenciosos en runtime del frontend.
 
 ---
 

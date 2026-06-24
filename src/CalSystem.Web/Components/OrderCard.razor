@@ -1,0 +1,76 @@
+@using CalSystem.Web.Models
+@using CalSystem.Web.Services
+@inject OrderApiService Api
+
+<div class="order-card">
+    <div class="order-card-header">
+        <div>
+            <div class="order-customer">@Order.CustomerName</div>
+            <div class="order-id">@Order.Id.ToString()[..8]…</div>
+        </div>
+        <StatusBadge Status="@Order.Status" />
+    </div>
+
+    <div class="order-equipment">@Order.Equipment</div>
+    <div class="order-problem">@Order.ProblemDescription</div>
+
+    @if (!string.IsNullOrWhiteSpace(Order.Notes))
+    {
+        <div class="order-notes">Notas: @Order.Notes</div>
+    }
+
+    <div class="order-meta">
+        <span>Creado: @Order.CreatedAt.ToLocalTime().ToString("dd/MM/yy HH:mm")</span>
+        @if (Order.TechnicianId.HasValue)
+        {
+            <span>Técnico: @Order.TechnicianId.Value.ToString()[..8]…</span>
+        }
+    </div>
+
+    <div class="order-card-actions">
+        @if (Order.Status == "Pending")
+        {
+            <button class="btn btn-warning" @onclick="ShowAssign" disabled="@busy">
+                Asignar Técnico
+            </button>
+        }
+        @if (Order.Status == "InProgress")
+        {
+            <button class="btn btn-success" @onclick="ShowClose" disabled="@busy">
+                Cerrar Orden
+            </button>
+        }
+    </div>
+</div>
+
+@if (showAssign)
+{
+    <AssignTechnicianModal OrderId="@Order.Id" OnClose="HandleAssignClose" />
+}
+@if (showClose)
+{
+    <CloseOrderModal OrderId="@Order.Id" OnClose="HandleCloseClose" />
+}
+
+@code {
+    [Parameter, EditorRequired] public OrderDto Order { get; set; } = null!;
+    [Parameter] public EventCallback OnAction { get; set; }
+
+    bool busy = false;
+    bool showAssign, showClose;
+
+    void ShowAssign() => showAssign = true;
+    void ShowClose()  => showClose  = true;
+
+    async Task HandleAssignClose(bool changed)
+    {
+        showAssign = false;
+        if (changed) await OnAction.InvokeAsync();
+    }
+
+    async Task HandleCloseClose(bool changed)
+    {
+        showClose = false;
+        if (changed) await OnAction.InvokeAsync();
+    }
+}
