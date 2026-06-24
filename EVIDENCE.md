@@ -192,10 +192,8 @@ y descripción: "Actualmente el endpoint acepta campos vacíos.
 Se debe agregar validación de FluentValidation para CustomerName, Equipment y ProblemDescription."
 ```
 
-**Resultado:** Issue creado en GitHub.  
-**URL del recurso:** *(completar con URL real del issue después de ejecutar la acción)*
-
-> Para ejecutar: configurar GitHub MCP en Claude Code con token de acceso y ejecutar el prompt anterior.
+**Resultado:** Issue #1 creado en GitHub via GitHub CLI (gh).  
+**URL del recurso:** https://github.com/enderson-phoenix/TareaPluralsight/issues/1
 
 ---
 
