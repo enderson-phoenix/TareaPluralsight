@@ -293,3 +293,12 @@ dotnet ef migrations add NombreMigracion \
 | `/frontend-expert` | Blazor WASM, Razor, HttpClient, componentes, CSS |
 
 Ver `.claude/GUIDE.md` para documentación completa.
+
+### MCP Servers configurados
+
+| Servidor | Propósito |
+|----------|-----------|
+| `github` | Crear issues, commits, PRs desde Claude Code |
+
+**Configuración:** `.mcp.json` en la raíz del repo (commiteado — compartido con el equipo).  
+Requiere la variable de entorno `GITHUB_PERSONAL_ACCESS_TOKEN` definida en el shell o en `.env.local`.
