@@ -8,7 +8,7 @@
             "type": "command",
             "shell": "powershell",
             "statusMessage": "change-validator: checking build...",
-            "command": "try { $p = ($env:CLAUDE_TOOL_INPUT | ConvertFrom-Json -EA Stop).file_path; if ($p -match '\\.cs$') { Write-Host ''; Write-Host ('-- change-validator [Op1]: ' + [IO.Path]::GetFileName($p) + ' editado'); $r = dotnet build --no-incremental -v q 2>&1; $e = ($r | Select-String ' error ').Count; $w = ($r | Select-String ' warning ').Count; if ($e -gt 0) { Write-Host ('[FAIL] ' + $e + ' error(s) de compilacion. Ejecuta /validate para detalles.'); $r | Select-String ' error ' | Select-Object -First 2 | ForEach-Object { Write-Host ('  ' + $_.Line) } } elseif ($w -gt 0) { Write-Host ('[WARN] Build OK con ' + $w + ' warning(s).') } else { Write-Host '[PASS] Build OK' } } } catch {}"
+            "command": "& '.claude/hooks/build-validator.ps1'"
           }
         ]
       }
