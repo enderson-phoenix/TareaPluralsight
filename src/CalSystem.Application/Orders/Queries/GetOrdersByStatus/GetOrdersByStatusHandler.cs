@@ -23,7 +23,8 @@ public class GetOrdersByStatusHandler : IRequestHandler<GetOrdersByStatusQuery, 
             o.ProblemDescription,
             o.Status.ToString(),
             o.TechnicianId,
-            o.CreatedAt
+            o.CreatedAt,
+            o.Notes
         ));
     }
 }

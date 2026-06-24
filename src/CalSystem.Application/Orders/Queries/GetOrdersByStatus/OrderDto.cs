@@ -7,5 +7,6 @@ public record OrderDto(
     string ProblemDescription,
     string Status,
     Guid? TechnicianId,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    string? Notes
 );

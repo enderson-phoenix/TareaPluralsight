@@ -1,4 +1,5 @@
 using CalSystem.Application.Orders.Commands.AssignTechnician;
+using CalSystem.Application.Orders.Commands.CloseOrder;
 using CalSystem.Application.Orders.Commands.CreateOrder;
 using CalSystem.Application.Orders.Queries.GetOrdersByStatus;
 using CalSystem.Domain.Enums;
@@ -49,6 +50,20 @@ public class ServiceOrdersController : ControllerBase
         return Ok();
     }
 
+    /// <summary>Closes a service order with optional technician notes.</summary>
+    [HttpPut("{id:guid}/close")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CloseOrder(Guid id, [FromBody] CloseOrderRequest request)
+    {
+        var command = new CloseOrderCommand(id, request.Notes);
+        var success = await _mediator.Send(command);
+
+        if (!success) return NotFound($"Order {id} not found.");
+
+        return Ok();
+    }
+
     /// <summary>Returns all service orders filtered by status.</summary>
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -72,3 +87,5 @@ public record CreateOrderRequest(
 );
 
 public record AssignTechnicianRequest(Guid TechnicianId);
+
+public record CloseOrderRequest(string? Notes);

@@ -28,6 +28,12 @@ public class ServiceOrder
     /// <summary>Gets the UTC timestamp when the order was created.</summary>
     public DateTime CreatedAt { get; private set; }
 
+    /// <summary>
+    /// Gets the technician's observations recorded at the moment of closing.
+    /// Null when the order has not been closed or was closed without observations.
+    /// </summary>
+    public string? Notes { get; private set; }
+
     private ServiceOrder() { }
 
     /// <summary>
@@ -61,10 +67,17 @@ public class ServiceOrder
     }
 
     /// <summary>
-    /// Closes the service order, marking the service as completed.
+    /// Closes the service order and records the technician's observations.
     /// </summary>
-    public void Close()
+    /// <param name="notes">Optional observations written by the technician at close time.</param>
+    /// <exception cref="InvalidOperationException">Thrown when the order is already closed.</exception>
+    public void Close(string? notes = null)
     {
+        if (Status == OrderStatus.Closed)
+            throw new InvalidOperationException(
+                $"La orden {Id} ya está cerrada y no puede modificarse.");
+
+        Notes = notes;
         Status = OrderStatus.Closed;
     }
 }

@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
             entity.Property(e => e.CustomerName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Equipment).IsRequired().HasMaxLength(200);
             entity.Property(e => e.ProblemDescription).IsRequired().HasMaxLength(1000);
+            entity.Property(e => e.Notes).HasMaxLength(2000);
             entity.Property(e => e.Status).HasConversion<string>();
         });
 
