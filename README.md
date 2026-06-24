@@ -1,8 +1,6 @@
 # CalSystem
 
-Sistema de Órdenes de Servicio Técnico para **Phoenix Calibration DR**. Gestiona órdenes de calibración y servicio técnico de equipos industriales, con asignación de técnicos y seguimiento de estado.
-
-> Generado con asistencia de Claude Code — prompt: "Genera el README.md principal del proyecto CalSystem. Stack: .NET 10, Clean Architecture, EF Core SQLite, MediatR, xUnit."
+Sistema de Órdenes de Servicio Técnico para **Phoenix Calibration DR**. Gestiona órdenes de calibración y servicio técnico de equipos industriales, con asignación de técnicos, seguimiento de estado y cierre con notas.
 
 ---
 
@@ -10,18 +8,19 @@ Sistema de Órdenes de Servicio Técnico para **Phoenix Calibration DR**. Gestio
 
 | Capa | Tecnología |
 |------|-----------|
-| API | ASP.NET Core 10, Swagger/Swashbuckle |
+| Frontend | Blazor WebAssembly 10.0.9 — Kanban interactivo (puerto 5200) |
+| API | ASP.NET Core 10, Swagger/Swashbuckle (puerto 5112) |
 | Aplicación | MediatR 12 (CQRS) |
-| Persistencia | EF Core 9 + SQLite |
+| Persistencia | EF Core 10 + SQLite (migraciones formales) |
 | Tests | xUnit + Moq + FluentAssertions |
-| Arquitectura | Clean Architecture |
+| Arquitectura | Clean Architecture (4 capas) |
 
 ---
 
 ## Requisitos previos
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- (Opcional) [dotnet-ef tools](https://learn.microsoft.com/ef/core/cli/dotnet) para gestión de migraciones
+- dotnet-ef tools para gestión de migraciones:
 
 ```bash
 dotnet tool install --global dotnet-ef
@@ -33,25 +32,42 @@ dotnet tool install --global dotnet-ef
 
 ```bash
 # Clonar el repositorio
-git clone https://github.com/TU_USUARIO/calsystem.git
-cd calsystem
+git clone https://github.com/enderson-phoenix/TareaPluralsight.git
+cd TareaPluralsight
 
 # Restaurar dependencias y compilar
 dotnet restore
 dotnet build
 
-# Ejecutar la API (la base de datos SQLite se crea automáticamente)
-dotnet run --project src/CalSystem.Api
+# Terminal 1 — API (crea la BD automáticamente vía Migrate())
+dotnet run --project src/CalSystem.Api --urls http://localhost:5112
+
+# Terminal 2 — Frontend Blazor
+dotnet run --project src/CalSystem.Web --urls http://localhost:5200
 ```
 
-La API estará disponible en `https://localhost:{puerto}`.  
-Swagger UI en `https://localhost:{puerto}/swagger`.
+| Recurso | URL |
+|---------|-----|
+| **Frontend (Kanban)** | http://localhost:5200 |
+| **Swagger UI** | http://localhost:5112/swagger |
 
 ---
 
-## Endpoints
+## Flujo del sistema
 
-### POST /api/orders — Crear orden de servicio
+```
+[Crear Orden] → Pending
+      ↓  (Asignar Técnico)
+  InProgress
+      ↓  (Cerrar Orden + Notas)
+    Closed
+```
+
+---
+
+## Endpoints — Órdenes de Servicio
+
+### POST /api/orders — Crear orden
 
 ```http
 POST /api/orders
@@ -74,7 +90,7 @@ Content-Type: application/json
 ### PUT /api/orders/{id}/assign — Asignar técnico
 
 ```http
-PUT /api/orders/3fa85f64-5717-4562-b3fc-2c963f66afa6/assign
+PUT /api/orders/3fa85f64.../assign
 Content-Type: application/json
 
 {
@@ -82,17 +98,34 @@ Content-Type: application/json
 }
 ```
 
-**Respuesta:** `200 OK` | `404 Not Found` si la orden no existe.
+**Respuesta:** `200 OK` | `404 Not Found`
 
 ---
 
-### GET /api/orders?status={status} — Consultar órdenes por estado
+### PUT /api/orders/{id}/close — Cerrar orden
+
+```http
+PUT /api/orders/3fa85f64.../close
+Content-Type: application/json
+
+{
+  "notes": "Sensor calibrado. Lectura corregida a ±0.1°C."
+}
+```
+
+**Respuesta:** `200 OK` | `404 Not Found`
+
+---
+
+### GET /api/orders?status={status} — Consultar por estado
 
 ```http
 GET /api/orders?status=Pending
 GET /api/orders?status=InProgress
 GET /api/orders?status=Closed
 ```
+
+**Valores válidos:** `Pending`, `InProgress`, `Closed`
 
 **Respuesta:** `200 OK`
 ```json
@@ -104,13 +137,51 @@ GET /api/orders?status=Closed
     "problemDescription": "No enciende después de caída de tensión",
     "status": "Pending",
     "technicianId": null,
+    "notes": null,
     "createdAt": "2026-06-24T10:30:00Z"
   }
 ]
 ```
 
-**Valores válidos de status:** `Pending`, `InProgress`, `Closed`  
-**Error:** `400 Bad Request` si el status no es válido.
+---
+
+## Endpoints — Técnicos
+
+### POST /api/technicians — Registrar técnico
+
+```http
+POST /api/technicians
+Content-Type: application/json
+
+{
+  "name": "Carlos López",
+  "email": "carlos@phoenix.com"
+}
+```
+
+**Respuesta:** `201 Created`
+```json
+{ "id": "a1b2c3d4-..." }
+```
+
+---
+
+### GET /api/technicians — Listar técnicos
+
+```http
+GET /api/technicians
+```
+
+**Respuesta:** `200 OK`
+```json
+[
+  {
+    "id": "a1b2c3d4-...",
+    "name": "Carlos López",
+    "email": "carlos@phoenix.com"
+  }
+]
+```
 
 ---
 
@@ -121,10 +192,16 @@ dotnet test
 ```
 
 ```
-Passed! - Failed: 0, Passed: 7, Skipped: 0, Total: 7
+Passed! - Failed: 0, Passed: 11, Skipped: 0, Total: 11
 ```
 
-Los tests unitarios cubren los 3 handlers (CreateOrder, AssignTechnician, GetOrdersByStatus) usando Moq para el repositorio y FluentAssertions para los asserts.
+| Conjunto de tests | Casos |
+|-------------------|-------|
+| `CreateOrderHandlerTests` | 2 — id válido, estado Pending inicial |
+| `AssignTechnicianHandlerTests` | 2 — asignación exitosa, orden no encontrada |
+| `CloseOrderHandlerTests` | 3 — con notas, sin notas, orden inexistente |
+| `GetOrdersByStatusHandlerTests` | 2 — mapeo a DTO, colección vacía |
+| `CreateTechnicianHandlerTests` | 2 — id válido, llamada única a AddAsync |
 
 ---
 
@@ -133,11 +210,19 @@ Los tests unitarios cubren los 3 handlers (CreateOrder, AssignTechnician, GetOrd
 ```
 src/
   CalSystem.Domain/          # Entidades (ServiceOrder, Technician), enums, interfaces
-  CalSystem.Application/     # Casos de uso: Commands, Queries, Handlers
+  CalSystem.Application/     # Casos de uso: Commands, Queries, Handlers, DTOs
   CalSystem.Infrastructure/  # EF Core, SQLite, repositorios, migraciones
   CalSystem.Api/             # Controllers, Program.cs, Swagger
+  CalSystem.Web/             # Blazor WASM: páginas, componentes, servicios HTTP
 tests/
-  CalSystem.Tests/           # Pruebas unitarias con xUnit
+  CalSystem.Tests/           # Pruebas unitarias con xUnit + Moq + FluentAssertions
+```
+
+**Jerarquía de dependencias:**
+```
+Domain ← Application ← Infrastructure ← Api
+                                    ↑
+                            CalSystem.Web (vía HTTP)
 ```
 
 **Flujo de una petición:**
@@ -152,6 +237,24 @@ HTTP Request
 
 ---
 
+## Migraciones EF Core
+
+El proyecto usa migraciones formales (no `EnsureCreated`):
+
+```bash
+# Aplicar migraciones pendientes
+dotnet ef database update \
+  --project src/CalSystem.Infrastructure \
+  --startup-project src/CalSystem.Api
+
+# Crear nueva migración tras cambios en entidades
+dotnet ef migrations add NombreMigracion \
+  --project src/CalSystem.Infrastructure \
+  --startup-project src/CalSystem.Api
+```
+
+---
+
 ## Claude Code Tooling
 
 ### Validación de calidad
@@ -160,13 +263,11 @@ HTTP Request
 |-------------|-----|
 | `/validate` | Valida compilación, tests, arquitectura y migraciones |
 | `/validate-agent` | Análisis profundo en subagente aislado |
-| `/validate-smart` | Validación interactiva por severidad |
-| `/new-entity` | Genera entidades de dominio DDD |
+| `/validate-smart` | Validación interactiva por severidad (🔴🟡🔵) |
+| `/new-entity` | Genera entidades de dominio DDD listas para usar |
 | Hooks automáticos | Build en cada edición .cs, gates antes de commits |
 
 ### Sistema de agentes expertos
-
-Orquestador inteligente que enruta automáticamente a los expertos correctos según la tarea:
 
 | Herramienta | Uso |
 |-------------|-----|
@@ -177,8 +278,9 @@ Orquestador inteligente que enruta automáticamente a los expertos correctos seg
 | `/consult @api ...` | Consulta solo al experto de Api (controllers, Swagger) |
 | `/consult @test ...` | Consulta solo al experto de Testing (xUnit, Moq, TDD) |
 | `/consult @arch ...` | Consulta solo al experto de Arquitectura (Clean Architecture) |
+| `/consult @frontend ...` | Consulta solo al experto de Frontend (Blazor WASM) |
 
-**Atajos directos por experto:**
+**Atajos directos:**
 
 | Herramienta | Especialidad |
 |-------------|-------------|
@@ -188,5 +290,6 @@ Orquestador inteligente que enruta automáticamente a los expertos correctos seg
 | `/api-expert` | Controllers, endpoints HTTP, Swagger, Program.cs |
 | `/test-expert` | xUnit, Moq, FluentAssertions, ciclo TDD |
 | `/arch-expert` | Clean Architecture, límites de capas, SOLID |
+| `/frontend-expert` | Blazor WASM, Razor, HttpClient, componentes, CSS |
 
 Ver `.claude/GUIDE.md` para documentación completa.

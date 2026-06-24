@@ -29,7 +29,7 @@ Claude entró en Plan Mode y propuso:
 **Ajuste al plan antes de aprobar:**
 - Se cambió el tipo de retorno de `AssignTechnicianCommand` de `Unit` a `bool` para dar feedback explícito al controller sobre si la orden existía.
 
-**Resultado:** Plan aprobado e implementado. 7 tests pasando (base UC-01/02/03; 10 en total tras UC-04).
+**Resultado:** Plan aprobado e implementado. 7 tests pasando (base UC-01/02/03; 11 en total tras UC-04 + gestión de técnicos).
 
 ---
 
@@ -121,6 +121,8 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, Guid>
 ```
 Passed! - Failed: 0, Passed: 7, Skipped: 0, Total: 7, Duration: 932 ms
 ```
+
+> **Estado actual:** 11 tests pasando tras la adición de CloseOrder (3 tests) y CreateTechnician (2 tests).
 
 ---
 
@@ -370,6 +372,8 @@ public class CloseOrderHandler : IRequestHandler<CloseOrderCommand, bool>
 Passed! - Failed: 0, Passed: 10, Skipped: 0, Total: 10, Duration: 1 043 ms
 ```
 
+> **Estado actual:** 11 tests tras agregar `CreateTechnicianHandlerTests` (2 tests).
+
 ### Archivos modificados/creados
 
 | Archivo | Cambio |
@@ -431,3 +435,63 @@ exitosamente: 3 nuevos archivos, 4 modificados, 10/10 tests verdes.
 ```
 
 Ver `.claude/GUIDE.md` para documentación completa del sistema de expertos.
+
+---
+
+## Bonus 2 — Frontend Blazor WebAssembly + Gestión de Técnicos
+
+**Qué es:** Interfaz visual completa que consume la API REST, implementada como Blazor WASM en `src/CalSystem.Web/`. Incluye gestión de técnicos end-to-end.
+
+### Flujo visual del sistema
+
+```
+http://localhost:5200  →  Kanban de 3 columnas (Pending / InProgress / Closed)
+                          ↓ botón "+ Nueva Orden"
+                          Modal crear orden → POST /api/orders
+                          ↓ botón "Asignar Técnico" (columna Pending)
+                          Modal con dropdown de técnicos → PUT /api/orders/{id}/assign
+                          ↓ botón "Cerrar Orden" (columna InProgress)
+                          Modal con campo notas → PUT /api/orders/{id}/close
+
+http://localhost:5200/technicians → Gestión de técnicos
+                          Formulario nombre + email → POST /api/technicians
+                          Tabla con técnicos registrados → GET /api/technicians
+```
+
+### Agente frontend-expert
+
+**Archivo:** `.claude/agents/frontend-expert.md`
+
+Experto en Blazor WASM añadido al sistema de agentes. Conoce la estructura de `CalSystem.Web/`, las convenciones de componentes Razor, el contrato de la API y el CSS del proyecto.
+
+**Integración en el orquestador `/consult`:**
+- Keywords detectados: `blazor`, `razor`, `componente`, `frontend`, `UI`, `HttpClient`, `modal`, `CSS`, `kanban`
+- Flag manual: `@frontend`
+- Patrones de archivos: `src/CalSystem.Web/**` → enruta a `frontend-expert` + `api-expert`
+
+### Archivos del frontend
+
+| Archivo | Descripción |
+|---------|-------------|
+| `src/CalSystem.Web/Pages/Home.razor` | Kanban de órdenes con 3 columnas y estadísticas |
+| `src/CalSystem.Web/Pages/Technicians.razor` | CRUD de técnicos (formulario + tabla) |
+| `src/CalSystem.Web/Components/OrderCard.razor` | Tarjeta de orden con acciones contextuales |
+| `src/CalSystem.Web/Components/CreateOrderModal.razor` | Modal crear nueva orden |
+| `src/CalSystem.Web/Components/AssignTechnicianModal.razor` | Modal con dropdown de técnicos reales |
+| `src/CalSystem.Web/Components/CloseOrderModal.razor` | Modal cerrar orden con notas |
+| `src/CalSystem.Web/Services/OrderApiService.cs` | Servicio HTTP centralizado para todos los endpoints |
+| `src/CalSystem.Web/Layouts/MainLayout.razor` | Layout con barra de navegación (Órdenes / Técnicos) |
+| `src/CalSystem.Web/wwwroot/css/app.css` | Estilos completos del sistema (dark mode, kanban, modales) |
+
+### Mejoras de calidad aplicadas (change-validator)
+
+Tras ejecutar `/validate-agent` completo sobre todo el código:
+
+| Mejora | Detalle |
+|--------|---------|
+| `EnsureCreated()` → `Migrate()` | Base de datos ahora usa migraciones formales EF Core |
+| Migración `InitialCreate` | Esquema completo versionado en `Infrastructure/Migrations/` |
+| `Directory.Build.props` | Supresión auditada de SQLitePCLRaw advisory (sin versión corregida disponible) |
+| Paquetes actualizados | OpenApi 10.0.9, Blazor WASM 10.0.9, Test SDK 18.7.0, xunit 3.1.5, coverlet 10.0.1 |
+| Comentario `GetByIdAsync` | Documentado por qué `FindAsync` sin `AsNoTracking` es intencional |
+| `UnitTest1.cs` eliminado | Placeholder sin aserciones removido — 11 tests reales |

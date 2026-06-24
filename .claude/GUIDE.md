@@ -81,7 +81,8 @@ Tú editas ServiceOrder.cs
 │   ├── infrastructure-expert.md← Experto: EF Core, SQLite, repositorios, migraciones
 │   ├── api-expert.md           ← Experto: controllers ASP.NET, Swagger, Program.cs
 │   ├── test-expert.md          ← Experto: xUnit, Moq, FluentAssertions, TDD
-│   └── architecture-expert.md  ← Experto: Clean Architecture, límites, SOLID
+│   ├── architecture-expert.md  ← Experto: Clean Architecture, límites, SOLID
+│   └── frontend-expert.md      ← Experto: Blazor WASM, Razor, HttpClient, CSS
 ├── commands/
 │   ├── validate.md             ← /validate  (inline + FIX-PLAN.md)
 │   ├── validate-agent.md       ← /validate-agent (delega al agente)
@@ -93,7 +94,10 @@ Tú editas ServiceOrder.cs
 │   ├── infra-expert.md         ← /infra-expert (atajo directo)
 │   ├── api-expert.md           ← /api-expert (atajo directo)
 │   ├── test-expert.md          ← /test-expert (atajo directo)
-│   └── arch-expert.md          ← /arch-expert (atajo directo)
+│   ├── arch-expert.md          ← /arch-expert (atajo directo)
+│   └── frontend-expert.md      ← /frontend-expert (atajo directo)
+├── skills/
+│   └── new-entity.md           ← skill DDD (misma lógica que /new-entity)
 └── settings.json               ← 4 hooks automáticos
 ```
 
@@ -345,7 +349,7 @@ Sin el sistema:                      Con el sistema:
 
 ---
 
-### Los 6 agentes expertos
+### Los 7 agentes expertos
 
 Cada agente tiene un system prompt especializado con conocimiento específico de CalSystem: convenciones, archivos actuales, patrones correctos e incorrectos.
 
@@ -554,6 +558,7 @@ Cuando describes la tarea en texto libre, el orquestador detecta keywords y enru
 | endpoint, controller, HTTP, Swagger, POST, GET, PUT | **api** |
 | test, prueba, mock, xunit, assert, TDD, FluentAssertions | **test** |
 | arquitectura, clean, capas, layer, DI, SOLID | **architecture** |
+| blazor, razor, componente, component, frontend, UI, página, HttpClient, modal, CSS, kanban | **frontend** |
 | Tarea que afecta múltiples capas | todos los relevantes + **architecture** |
 
 #### Modo automático — enrutamiento por archivos git
@@ -584,6 +589,7 @@ Cuando ya sabes qué experto necesitas, usa el prefijo `@` para omitir el enruta
 | `@api` | api-expert |
 | `@test` | test-expert |
 | `@arch` | architecture-expert |
+| `@frontend` | frontend-expert |
 
 Puedes combinar varios `@` en el mismo comando para invocar múltiples expertos.
 
@@ -601,8 +607,42 @@ Cuando ya sabes exactamente qué experto necesitas, los atajos directos son más
 | `/api-expert nuevo endpoint DELETE /api/orders/{id}` | api-expert | Diseño o revisión de endpoints |
 | `/test-expert cubrir CloseOrderHandler` | test-expert | Escribir o revisar tests |
 | `/arch-expert revisar si este diseño viola límites` | architecture-expert | Auditoría arquitectural |
+| `/frontend-expert agregar página de reportes` | frontend-expert | Componentes Blazor, UI, CSS, HttpClient |
 
 La diferencia entre `/consult @domain ...` y `/domain-expert ...` es solo conveniencia — ambos invocan el mismo agente.
+
+---
+
+#### frontend-expert
+
+| Campo | Valor |
+|-------|-------|
+| **Archivo** | `.claude/agents/frontend-expert.md` |
+| **Model** | claude-sonnet-4-6 |
+| **Tools** | Read, Glob, Grep, Bash |
+| **Atajo** | `/frontend-expert` |
+
+**¿Qué sabe?**
+- Estructura de Blazor WASM: `_Imports.razor` global, `App.razor`, `Layouts/`, `Pages/`, `Components/`
+- Patrón de servicios HTTP: `OrderApiService` con `GetFromJsonAsync`, `PostAsJsonAsync`, `PutAsJsonAsync`
+- Modelos DTO del cliente en `CalSystem.Web/Models/` — deben mantenerse alineados con los DTOs de Application
+- Estado en componentes Razor: `@code`, `@bind`, `@onclick`, `EventCallback<T>`, `StateHasChanged()`
+- CORS: la API acepta `http://localhost:5200`; el frontend apunta a `http://localhost:5112`
+- Convención de rutas: API (5112) + Blazor DevServer (5200)
+- CSS en `wwwroot/css/app.css`: variables CSS, clases kanban, modales, formularios
+
+**¿Cuándo invocarlo?**
+- Agregar una nueva página Razor (`@page "/ruta"`)
+- Crear o modificar un componente reutilizable (modal, tarjeta)
+- Integrar un nuevo endpoint de la API en `OrderApiService`
+- Problemas de estado o renderizado en componentes
+- Cambios de estilo en `app.css`
+
+**¿Qué entrega?**
+- El archivo `.razor` completo listo para usar
+- Cambios necesarios en `OrderApiService.cs` si el componente llama a la API
+- Nuevos modelos en `CalSystem.Web/Models/` si el endpoint retorna un tipo nuevo
+- Instrucción de si hay que registrar algo en `CalSystem.Web/Program.cs`
 
 ---
 
@@ -1194,7 +1234,9 @@ $command  = $input.command     # para Bash
 | Necesito diseñar un endpoint o revisar status codes | `/api-expert [descripción]` |
 | Quiero escribir tests o seguir TDD | `/test-expert [descripción]` |
 | Quiero verificar que no violé Clean Architecture | `/arch-expert [descripción]` |
+| Cambio en UI Blazor o componente Razor | `/frontend-expert [descripción]` |
 | Tarea que toca domain + infra (nueva entidad) | `/consult @domain @infra [descripción]` |
+| Tarea que toca API + frontend | `/consult @api @frontend [descripción]` |
 | Nueva funcionalidad completa (todas las capas) | `/consult [descripción]` — enruta a todos |
 
 ### Comparativa de commands
@@ -1239,8 +1281,8 @@ Tu tarea
            │
    ┌───────┼────────┬────────┬──────────┬──────────┐
    ▼       ▼        ▼        ▼          ▼          ▼
-domain  app     infra    api        test      arch
-expert  expert  expert   expert     expert    expert
+domain  app     infra    api        test      arch      frontend
+expert  expert  expert   expert     expert    expert    expert
    │       │        │        │          │          │
    └───────┴────────┴────────┴──────────┴──────────┘
                            │
@@ -1254,12 +1296,12 @@ expert  expert  expert   expert     expert    expert
 
 ### Comparativa de expertos
 
-| | domain | application | infrastructure | api | test | architecture |
-|--|:------:|:-----------:|:--------------:|:---:|:----:|:------------:|
-| **Capa** | Domain | Application | Infrastructure | Api | Tests | Transversal |
-| **Tools** | R,G,Grep | R,G,Grep,Bash | R,G,Grep,Bash | R,G,Grep,Bash | R,G,Grep,Bash | R,G,Grep |
-| **Escribe código** | ✅ | ✅ | ✅ | ✅ | ✅ | Sugerencias |
-| **Ejecuta comandos** | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **Emite veredicto** | Diseño DDD | Diseño CQRS | Config EF Core | REST semántico | Cobertura | CUMPLE/VIOLA |
+| | domain | application | infrastructure | api | test | architecture | frontend |
+|--|:------:|:-----------:|:--------------:|:---:|:----:|:------------:|:--------:|
+| **Capa** | Domain | Application | Infrastructure | Api | Tests | Transversal | CalSystem.Web |
+| **Tools** | R,G,Grep | R,G,Grep,Bash | R,G,Grep,Bash | R,G,Grep,Bash | R,G,Grep,Bash | R,G,Grep | R,G,Grep,Bash |
+| **Escribe código** | ✅ | ✅ | ✅ | ✅ | ✅ | Sugerencias | ✅ |
+| **Ejecuta comandos** | ❌ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
+| **Emite veredicto** | Diseño DDD | Diseño CQRS | Config EF Core | REST semántico | Cobertura | CUMPLE/VIOLA | Componente Blazor |
 
 *Guía generada con Claude Code · Proyecto CalSystem · Phoenix Calibration DR*
